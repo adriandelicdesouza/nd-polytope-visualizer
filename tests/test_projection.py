@@ -1,8 +1,12 @@
 import numpy as np
 import pytest
 
-from nd_geometry.projection import project
+from nd_geometry.projection import (
+    linear_project,
+    project,
+)
 from nd_geometry.slicing import Geometry
+
 
 
 def make_geometry(dimensions: int) -> Geometry:
@@ -198,4 +202,69 @@ def test_deduplicate_projected_geometry():
     np.testing.assert_array_equal(
         deduplicated.edges,
         np.array([[0, 1]]),
+    )
+
+def test_linear_projection():
+    geometry = Geometry(
+        vertices=np.array([
+            [1.0, 2.0, 3.0, 4.0],
+            [2.0, 4.0, 6.0, 8.0],
+        ]),
+        edges=np.array([
+            [0, 1],
+        ]),
+    )
+
+    matrix = np.array([
+        [1.0, 0.0, 0.0, 1.0],
+        [0.0, 1.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0, 1.0],
+    ])
+
+    projected = linear_project(
+        geometry,
+        matrix,
+    )
+
+    expected = np.array([
+        [5.0, 6.0, 7.0],
+        [10.0, 12.0, 14.0],
+    ])
+
+    np.testing.assert_allclose(
+        projected.vertices,
+        expected,
+    )
+
+    np.testing.assert_array_equal(
+        projected.edges,
+        geometry.edges,
+    )
+
+def test_orthogonal_projection_matrix():
+    from nd_geometry.projection import orthogonal_projection_matrix
+
+    matrix = orthogonal_projection_matrix(
+        5,
+        3,
+        seed=42,
+    )
+
+    assert matrix.shape == (3, 5)
+
+    np.testing.assert_allclose(
+        matrix @ matrix.T,
+        np.eye(3),
+        atol=1e-12,
+    )
+
+    matrix_again = orthogonal_projection_matrix(
+        5,
+        3,
+        seed=42,
+    )
+
+    np.testing.assert_allclose(
+        matrix,
+        matrix_again,
     )

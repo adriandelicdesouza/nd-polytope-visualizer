@@ -111,3 +111,76 @@ def deduplicate_geometry(
             dtype=int,
         ).reshape(-1, 2),
     )
+
+def linear_project(
+    geometry: Geometry,
+    matrix: np.ndarray,
+) -> Geometry:
+    """Project geometry using a linear N-dimensional → M-dimensional matrix.
+
+    Parameters
+    ----------
+    geometry:
+        Source geometry.
+    matrix:
+        Projection matrix with shape (target_dimensions, source_dimensions).
+    """
+    vertices = np.asarray(geometry.vertices, dtype=float)
+    matrix = np.asarray(matrix, dtype=float)
+
+    if vertices.ndim != 2:
+        raise ValueError("geometry vertices must be a 2D array")
+
+    if matrix.ndim != 2:
+        raise ValueError("matrix must be a 2D array")
+
+    source_dimensions = vertices.shape[1]
+
+    if matrix.shape[1] != source_dimensions:
+        raise ValueError(
+            "matrix column count must equal source dimensions"
+        )
+
+    projected_vertices = vertices @ matrix.T
+
+    return Geometry(
+        vertices=projected_vertices,
+        edges=geometry.edges.copy(),
+    )
+
+def orthogonal_projection_matrix(
+    source_dimensions: int,
+    target_dimensions: int,
+    seed: int | None = None,
+) -> np.ndarray:
+    """Create an orthonormal projection matrix.
+
+    Parameters
+    ----------
+    source_dimensions:
+        Number of dimensions in the source space.
+    target_dimensions:
+        Number of dimensions in the projected space.
+    seed:
+        Optional random seed for reproducible orientations.
+    """
+    if source_dimensions < 1:
+        raise ValueError("source_dimensions must be >= 1")
+
+    if target_dimensions < 1:
+        raise ValueError("target_dimensions must be >= 1")
+
+    if target_dimensions > source_dimensions:
+        raise ValueError(
+            "target_dimensions cannot exceed source dimensions"
+        )
+
+    rng = np.random.default_rng(seed)
+
+    basis = rng.normal(
+        size=(source_dimensions, target_dimensions),
+    )
+
+    q, _ = np.linalg.qr(basis)
+
+    return q[:, :target_dimensions].T
