@@ -184,3 +184,42 @@ def orthogonal_projection_matrix(
     q, _ = np.linalg.qr(basis)
 
     return q[:, :target_dimensions].T
+
+def rotate_projection_basis(
+    matrix: np.ndarray,
+    axis_a: int,
+    axis_b: int,
+    angle: float,
+) -> np.ndarray:
+    """Rotate a projection basis in a source-space coordinate plane."""
+    matrix = np.asarray(matrix, dtype=float)
+
+    if matrix.ndim != 2:
+        raise ValueError("matrix must be a 2D array")
+
+    source_dimensions = matrix.shape[1]
+
+    if not 0 <= axis_a < source_dimensions:
+        raise ValueError(
+            f"axis_a must be between 0 and {source_dimensions - 1}"
+        )
+
+    if not 0 <= axis_b < source_dimensions:
+        raise ValueError(
+            f"axis_b must be between 0 and {source_dimensions - 1}"
+        )
+
+    if axis_a == axis_b:
+        raise ValueError("axis_a and axis_b must be different")
+
+    cosine = np.cos(angle)
+    sine = np.sin(angle)
+
+    rotation = np.eye(source_dimensions)
+
+    rotation[axis_a, axis_a] = cosine
+    rotation[axis_a, axis_b] = -sine
+    rotation[axis_b, axis_a] = sine
+    rotation[axis_b, axis_b] = cosine
+
+    return matrix @ rotation.T

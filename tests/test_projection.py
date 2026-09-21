@@ -298,3 +298,30 @@ def test_orthogonal_matrix_works_with_linear_projection():
         matrix.T,
         atol=1e-12,
     )
+
+def test_rotate_projection_basis_preserves_orthogonality():
+    from nd_geometry.projection import (
+        orthogonal_projection_matrix,
+        rotate_projection_basis,
+    )
+
+    matrix = orthogonal_projection_matrix(
+        source_dimensions=5,
+        target_dimensions=3,
+        seed=42,
+    )
+
+    rotated = rotate_projection_basis(
+        matrix,
+        axis_a=0,
+        axis_b=4,
+        angle=np.pi / 4,
+    )
+
+    assert rotated.shape == (3, 5)
+
+    np.testing.assert_allclose(
+        rotated @ rotated.T,
+        np.eye(3),
+        atol=1e-12,
+    )
