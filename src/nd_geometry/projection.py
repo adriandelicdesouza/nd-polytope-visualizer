@@ -2,35 +2,28 @@ from __future__ import annotations
 
 import numpy as np
 
+from .slicing import Geometry
+
 
 def project(
-    points: np.ndarray,
+    geometry: Geometry,
     target_dimensions: int,
     axes: tuple[int, ...] | None = None,
-) -> np.ndarray:
-    """Project N-dimensional points into M dimensions.
+) -> Geometry:
+    """Project N-dimensional geometry into M dimensions.
 
-    Parameters
-    ----------
-    points:
-        Array with shape (n_points, source_dimensions).
-    target_dimensions:
-        Number of dimensions in the projected result.
-    axes:
-        Optional source axes to retain. If omitted, the first
-        target_dimensions axes are retained.
+    This initial implementation performs coordinate projection by
+    retaining selected source axes.
 
-    Returns
-    -------
-    np.ndarray
-        Projected points with shape (n_points, target_dimensions).
+    Topology is preserved because projection changes coordinates,
+    not the relationships between the original vertices.
     """
-    points = np.asarray(points, dtype=float)
+    vertices = np.asarray(geometry.vertices, dtype=float)
 
-    if points.ndim != 2:
-        raise ValueError("points must be a 2D array")
+    if vertices.ndim != 2:
+        raise ValueError("geometry vertices must be a 2D array")
 
-    source_dimensions = points.shape[1]
+    source_dimensions = vertices.shape[1]
 
     if target_dimensions < 1:
         raise ValueError("target_dimensions must be >= 1")
@@ -54,4 +47,9 @@ def project(
     if any(axis < 0 or axis >= source_dimensions for axis in axes):
         raise ValueError("axes contain an invalid source dimension")
 
-    return points[:, axes].copy()
+    projected_vertices = vertices[:, axes].copy()
+
+    return Geometry(
+        vertices=projected_vertices,
+        edges=geometry.edges.copy(),
+    )
