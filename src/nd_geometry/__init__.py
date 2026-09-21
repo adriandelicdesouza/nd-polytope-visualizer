@@ -2,6 +2,7 @@ from .polytopes import Hypercube
 from .projection import (
     deduplicate_geometry,
     linear_project,
+    orthogonal_projection_matrix,
     project,
 )
 from .rendering import PlotlyRenderer, Renderer
@@ -15,6 +16,7 @@ __all__ = [
     "Renderer",
     "deduplicate_geometry",
     "linear_project",
+    "orthogonal_projection_matrix",
     "project",
     "rotate",
     "slice_geometry",

@@ -5,11 +5,14 @@ from nd_geometry import (
     Hypercube,
     PlotlyRenderer,
     linear_project,
+    orthogonal_projection_matrix,
     rotate,
     slice_geometry,
 )
+
 from nd_geometry.topology import hypercube_edges
 
+PROJECTION_SEED = 7
 
 cube = Hypercube(6)
 
@@ -39,11 +42,13 @@ geometry = slice_geometry(
 )
 
 # Project all 5 dimensions into 3D.
-matrix = np.array([
-    [1.0, 0.0, 0.0, 1.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0, 1.0],
-    [0.0, 0.0, 1.0, 1.0, 1.0],
-])
+matrix = orthogonal_projection_matrix(
+    source_dimensions=5,
+    target_dimensions=3,
+    seed=PROJECTION_SEED,
+)
+
+from nd_geometry import linear_project
 
 geometry = linear_project(
     geometry,
