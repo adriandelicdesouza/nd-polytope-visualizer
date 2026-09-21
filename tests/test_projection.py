@@ -268,3 +268,33 @@ def test_orthogonal_projection_matrix():
         matrix,
         matrix_again,
     )
+
+def test_orthogonal_matrix_works_with_linear_projection():
+    from nd_geometry.projection import (
+        linear_project,
+        orthogonal_projection_matrix,
+    )
+
+    geometry = Geometry(
+        vertices=np.eye(5),
+        edges=np.empty((0, 2), dtype=int),
+    )
+
+    matrix = orthogonal_projection_matrix(
+        source_dimensions=5,
+        target_dimensions=3,
+        seed=42,
+    )
+
+    projected = linear_project(
+        geometry,
+        matrix,
+    )
+
+    assert projected.vertices.shape == (5, 3)
+
+    np.testing.assert_allclose(
+        projected.vertices,
+        matrix.T,
+        atol=1e-12,
+    )
