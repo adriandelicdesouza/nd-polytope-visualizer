@@ -1,11 +1,15 @@
 from .polytopes import Hypercube
-from .projection import project
+from .projection import deduplicate_geometry, project
+from .rendering import PlotlyRenderer, Renderer
 from .rotations import rotate
 from .slicing import Geometry, slice_geometry
 
 __all__ = [
     "Geometry",
     "Hypercube",
+    "PlotlyRenderer",
+    "Renderer",
+    "deduplicate_geometry",
     "project",
     "rotate",
     "slice_geometry",

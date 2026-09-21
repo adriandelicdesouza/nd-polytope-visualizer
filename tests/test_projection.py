@@ -174,3 +174,28 @@ def test_wrong_number_of_axes():
             target_dimensions=3,
             axes=(0, 1),
         )
+
+def test_deduplicate_projected_geometry():
+    geometry = Geometry(
+        vertices=np.array([
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]),
+        edges=np.array([
+            [0, 2],
+            [1, 3],
+        ]),
+    )
+
+    from nd_geometry.projection import deduplicate_geometry
+
+    deduplicated = deduplicate_geometry(geometry)
+
+    assert len(deduplicated.vertices) == 2
+
+    np.testing.assert_array_equal(
+        deduplicated.edges,
+        np.array([[0, 1]]),
+    )
