@@ -13,6 +13,7 @@ from .rendering import PlotlyRenderer, Renderer
 from .rotations import rotate
 from .slicing import Geometry, slice_geometry
 from .parameter_space import ParameterSpace
+from .evaluation import EvaluationResult, evaluate_model
 
 __all__ = [
     "Geometry",
