@@ -247,3 +247,51 @@ def interpolate_response_crossing(
         )
 
     return point_a + fraction * (point_b - point_a)
+
+def continuous_response_level_set(
+    response: ResponseGeometry,
+    target: float,
+) -> np.ndarray:
+    """Return parameter-space points where response edges cross target."""
+    crossings: list[np.ndarray] = []
+
+    for a, b in response.geometry.edges:
+        output_a = response.outputs[a]
+        output_b = response.outputs[b]
+
+        if output_a == output_b:
+            continue
+
+        if not (
+            min(output_a, output_b)
+            <= target
+            <= max(output_a, output_b)
+        ):
+            continue
+
+        crossing = interpolate_response_crossing(
+            response.geometry.vertices[a],
+            output_a,
+            response.geometry.vertices[b],
+            output_b,
+            target,
+        )
+
+        crossings.append(crossing)
+
+    if not crossings:
+        return np.empty(
+            (0, response.geometry.vertices.shape[1]),
+            dtype=float,
+        )
+
+    unique_crossings: list[np.ndarray] = []
+
+    for crossing in crossings:
+        if not any(
+            np.allclose(crossing, existing, atol=1e-9, rtol=0)
+            for existing in unique_crossings
+        ):
+            unique_crossings.append(crossing)
+
+    return np.asarray(unique_crossings, dtype=float)

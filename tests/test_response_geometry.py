@@ -11,6 +11,7 @@ from nd_geometry.response_geometry import (
     embed_outputs,
     response_level_set,
     interpolate_response_crossing,
+    continuous_response_level_set,
 )
 
 from nd_geometry.sensitivity import SensitivityData
@@ -587,3 +588,67 @@ def test_interpolate_response_crossing_rejects_target_outside_range():
             20.0,
             target=25.0,
         )
+
+def test_interpolate_response_crossing_decreasing_output():
+    point_a = np.array([0.02, 0.10])
+    point_b = np.array([0.10, 0.20])
+
+    crossing = interpolate_response_crossing(
+        point_a,
+        30.0,
+        point_b,
+        10.0,
+        target=20.0,
+    )
+
+    np.testing.assert_allclose(
+        crossing,
+        np.array([0.06, 0.15]),
+    )
+
+def test_interpolate_response_crossing_upper_endpoint():
+    point_a = np.array([0.02, 0.10])
+    point_b = np.array([0.10, 0.20])
+
+    crossing = interpolate_response_crossing(
+        point_a,
+        10.0,
+        point_b,
+        30.0,
+        target=30.0,
+    )
+
+    np.testing.assert_allclose(
+        crossing,
+        point_b,
+    )
+
+def test_continuous_response_level_set():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    crossings = continuous_response_level_set(
+        response,
+        target=20.0,
+    )
+
+    assert crossings.shape == (2, 2)
+
+    np.testing.assert_allclose(
+        crossings,
+        np.array([
+            [0.5, 0.0],
+            [0.0, 1.0],
+        ]),
+    )
