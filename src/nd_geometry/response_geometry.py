@@ -66,6 +66,23 @@ def sensitivity_outputs(
     """Return model outputs aligned with sensitivity geometry vertices."""
     return data.values.reshape(-1).copy()
 
+def normalize_outputs(
+    outputs: np.ndarray,
+) -> np.ndarray:
+    """Normalize output values to the range [0, 1]."""
+    outputs = np.asarray(outputs, dtype=float)
+
+    if outputs.ndim != 1:
+        raise ValueError("outputs must be a 1D array")
+
+    minimum = np.min(outputs)
+    maximum = np.max(outputs)
+
+    if np.isclose(minimum, maximum):
+        return np.zeros_like(outputs)
+
+    return (outputs - minimum) / (maximum - minimum)
+
 def build_response_geometry(
     data: SensitivityData,
 ) -> ResponseGeometry:
@@ -77,3 +94,30 @@ def build_response_geometry(
         geometry=geometry,
         outputs=outputs,
     )
+
+@dataclass(frozen=True)
+class ResponseGeometry:
+    """Geometry representing an N-dimensional model response."""
+
+    geometry: Geometry
+    outputs: np.ndarray
+
+    @property
+    def normalized_outputs(self) -> np.ndarray:
+        """Return outputs normalized to the range [0, 1]."""
+        return normalize_outputs(self.outputs)
+
+    @property
+    def output_range(self) -> tuple[float, float]:
+        """Return the minimum and maximum model outputs."""
+        return (
+            float(np.min(self.outputs)),
+            float(np.max(self.outputs)),
+        )
+
+    def output_at(self, index: int) -> float:
+        """Return the model output associated with a geometry vertex."""
+        if not 0 <= index < len(self.outputs):
+            raise IndexError("output index out of range")
+
+        return float(self.outputs[index])

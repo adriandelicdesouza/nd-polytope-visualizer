@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import numpy as np
-
+import pytest
 from nd_geometry.response_geometry import (
     ResponseGeometry,
     build_response_geometry,
     sensitivity_outputs,
     sensitivity_vertices,
+    normalize_outputs,
 )
 
 from nd_geometry.sensitivity import SensitivityData
@@ -141,3 +142,102 @@ def test_build_response_geometry():
         response.outputs,
         np.array([1.0, 2.0, 3.0, 4.0]),
     )
+
+def test_normalize_outputs():
+    outputs = np.array([10.0, 20.0, 30.0, 40.0])
+
+    normalized = normalize_outputs(outputs)
+
+    np.testing.assert_allclose(
+        normalized,
+        np.array([0.0, 1 / 3, 2 / 3, 1.0]),
+    )
+
+
+def test_normalize_outputs_constant_values():
+    outputs = np.array([5.0, 5.0, 5.0])
+
+    normalized = normalize_outputs(outputs)
+
+    np.testing.assert_allclose(
+        normalized,
+        np.zeros(3),
+    )
+
+
+def test_normalize_outputs_rejects_non_1d():
+    outputs = np.array([[1.0, 2.0]])
+
+    with pytest.raises(ValueError):
+        normalize_outputs(outputs)
+
+def test_response_geometry_normalized_outputs():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    np.testing.assert_allclose(
+        response.normalized_outputs,
+        np.array([0.0, 1 / 3, 2 / 3, 1.0]),
+    )
+
+def test_response_geometry_output_range():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    assert response.output_range == (10.0, 40.0)
+
+def test_response_geometry_output_at():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    assert response.output_at(0) == 10.0
+    assert response.output_at(3) == 40.0
+
+
+def test_response_geometry_output_at_rejects_invalid_index():
+    data = SensitivityData(
+        values=np.zeros((2, 2)),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    with pytest.raises(IndexError):
+        response.output_at(4)

@@ -18,6 +18,7 @@ from .sensitivity import SensitivityData
 from .response_geometry import (
     ResponseGeometry,
     build_response_geometry,
+    normalize_outputs,
     sensitivity_edges,
     sensitivity_outputs,
     sensitivity_vertices,
