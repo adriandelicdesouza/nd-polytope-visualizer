@@ -10,6 +10,7 @@ from nd_geometry import (
     slice_geometry,
     rotate_projection_basis,
     rotate_projection_basis_sequence,
+    Projection,
 )
 
 from nd_geometry.topology import hypercube_edges
@@ -44,19 +45,16 @@ geometry = slice_geometry(
 )
 
 # Project all 5 dimensions into 3D.
-matrix = orthogonal_projection_matrix(
-    source_dimensions=5,
+projection = Projection(
     target_dimensions=3,
     seed=PROJECTION_SEED,
-)
-
-matrix = rotate_projection_basis_sequence(
-    matrix,
-    [
+    rotations=(
         (0, 4, np.pi / 6),
         (1, 3, np.pi / 8),
-    ],
+    ),
 )
+
+matrix = projection.matrix(source_dimensions=5)
 
 geometry = linear_project(
     geometry,
