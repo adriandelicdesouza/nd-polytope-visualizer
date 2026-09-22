@@ -14,6 +14,7 @@ from .rotations import rotate
 from .slicing import Geometry, slice_geometry
 from .parameter_space import ParameterSpace
 from .evaluation import EvaluationResult, evaluate_model
+from .sensitivity import SensitivityData
 
 __all__ = [
     "Geometry",
