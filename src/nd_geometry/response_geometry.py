@@ -216,3 +216,34 @@ def response_level_set(
         vertices=vertices,
         edges=edges,
     )
+
+def interpolate_response_crossing(
+    point_a: np.ndarray,
+    output_a: float,
+    point_b: np.ndarray,
+    output_b: float,
+    target: float,
+) -> np.ndarray:
+    """Interpolate a parameter-space point where a response reaches target."""
+    point_a = np.asarray(point_a, dtype=float)
+    point_b = np.asarray(point_b, dtype=float)
+
+    if point_a.ndim != 1 or point_b.ndim != 1:
+        raise ValueError("points must be 1D arrays")
+
+    if point_a.shape != point_b.shape:
+        raise ValueError("points must have matching dimensions")
+
+    if np.isclose(output_a, output_b):
+        raise ValueError(
+            "cannot interpolate between equal output values"
+        )
+
+    fraction = (target - output_a) / (output_b - output_a)
+
+    if fraction < 0.0 or fraction > 1.0:
+        raise ValueError(
+            "target must lie between the endpoint outputs"
+        )
+
+    return point_a + fraction * (point_b - point_a)

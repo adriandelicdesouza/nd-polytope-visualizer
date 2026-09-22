@@ -10,6 +10,7 @@ from nd_geometry.response_geometry import (
     normalize_outputs,
     embed_outputs,
     response_level_set,
+    interpolate_response_crossing,
 )
 
 from nd_geometry.sensitivity import SensitivityData
@@ -509,3 +510,80 @@ def test_response_level_set_preserves_edges():
             [0, 1],
         ]),
     )
+
+def test_interpolate_response_crossing():
+    point_a = np.array([0.02, 0.10])
+    point_b = np.array([0.10, 0.20])
+
+    crossing = interpolate_response_crossing(
+        point_a,
+        10.0,
+        point_b,
+        30.0,
+        target=20.0,
+    )
+
+    np.testing.assert_allclose(
+        crossing,
+        np.array([0.06, 0.15]),
+    )
+
+
+def test_interpolate_response_crossing_endpoint():
+    point_a = np.array([0.02, 0.10])
+    point_b = np.array([0.10, 0.20])
+
+    crossing = interpolate_response_crossing(
+        point_a,
+        10.0,
+        point_b,
+        30.0,
+        target=10.0,
+    )
+
+    np.testing.assert_allclose(
+        crossing,
+        point_a,
+    )
+
+
+def test_interpolate_response_crossing_rejects_equal_outputs():
+    with pytest.raises(ValueError):
+        interpolate_response_crossing(
+            np.array([0.0]),
+            10.0,
+            np.array([1.0]),
+            10.0,
+            target=10.0,
+        )
+
+def test_interpolate_response_crossing_rejects_non_1d_points():
+    with pytest.raises(ValueError):
+        interpolate_response_crossing(
+            np.array([[0.0]]),
+            10.0,
+            np.array([1.0]),
+            20.0,
+            target=15.0,
+        )
+
+
+def test_interpolate_response_crossing_rejects_mismatched_dimensions():
+    with pytest.raises(ValueError):
+        interpolate_response_crossing(
+            np.array([0.0, 1.0]),
+            10.0,
+            np.array([2.0]),
+            20.0,
+            target=15.0,
+        )
+
+def test_interpolate_response_crossing_rejects_target_outside_range():
+    with pytest.raises(ValueError):
+        interpolate_response_crossing(
+            np.array([0.0]),
+            10.0,
+            np.array([1.0]),
+            20.0,
+            target=25.0,
+        )
