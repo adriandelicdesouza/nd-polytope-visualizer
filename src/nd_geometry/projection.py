@@ -5,7 +5,6 @@ import numpy as np
 from .slicing import Geometry
 from dataclasses import dataclass
 
-
 @dataclass(frozen=True)
 class Projection:
     """Configuration for an N-dimensional linear projection."""
@@ -13,8 +12,8 @@ class Projection:
     target_dimensions: int
     seed: int | None = None
     rotations: tuple[tuple[int, int, float], ...] = ()
-    
-        def __post_init__(self) -> None:
+
+    def __post_init__(self) -> None:
         if self.target_dimensions < 1:
             raise ValueError("target_dimensions must be >= 1")
 
