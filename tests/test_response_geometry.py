@@ -9,6 +9,7 @@ from nd_geometry.response_geometry import (
     sensitivity_vertices,
     normalize_outputs,
     embed_outputs,
+    response_level_set,
 )
 
 from nd_geometry.sensitivity import SensitivityData
@@ -377,3 +378,134 @@ def test_embed_outputs_rejects_non_positive_scale():
 
     with pytest.raises(ValueError):
         embed_outputs(response, scale=-1.0)
+
+def test_response_level_set():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    level_set = response_level_set(
+        response,
+        target=20.0,
+    )
+
+    np.testing.assert_allclose(
+        level_set.vertices,
+        np.array([
+            [0.02, 0.20],
+        ]),
+    )
+
+    assert level_set.edges.shape == (0, 2)
+
+
+def test_response_level_set_tolerance():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.001],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    level_set = response_level_set(
+        response,
+        target=20.0,
+        tolerance=0.01,
+    )
+
+    assert level_set.vertices.shape == (1, 2)
+    assert level_set.edges.shape == (0, 2)
+
+def test_response_level_set_rejects_negative_tolerance():
+    data = SensitivityData(
+        values=np.zeros((2, 2)),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    with pytest.raises(ValueError):
+        response_level_set(
+            response,
+            target=0.0,
+            tolerance=-0.01,
+        )
+
+def test_response_level_set_can_be_empty():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    level_set = response_level_set(
+        response,
+        target=100.0,
+    )
+
+    assert level_set.vertices.shape == (0, 2)
+    assert level_set.edges.shape == (0, 2)
+
+def test_response_level_set_preserves_edges():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 10.0],
+            [20.0, 30.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    level_set = response_level_set(
+        response,
+        target=10.0,
+    )
+
+    np.testing.assert_allclose(
+        level_set.vertices,
+        np.array([
+            [0.02, 0.10],
+            [0.02, 0.20],
+        ]),
+    )
+
+    np.testing.assert_array_equal(
+        level_set.edges,
+        np.array([
+            [0, 1],
+        ]),
+    )

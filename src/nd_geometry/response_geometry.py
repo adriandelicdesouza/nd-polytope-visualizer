@@ -168,3 +168,51 @@ def embed_outputs(
         vertices=vertices,
         edges=response.geometry.edges.copy(),
     )
+
+def response_level_set(
+    response: ResponseGeometry,
+    target: float,
+    tolerance: float = 1e-9,
+) -> Geometry:
+    """Return geometry for parameter combinations near a target output."""
+    if tolerance < 0:
+        raise ValueError("tolerance must be >= 0")
+
+    mask = np.isclose(
+        response.outputs,
+        target,
+        atol=tolerance,
+        rtol=0,
+    )
+
+    selected_indices = np.flatnonzero(mask)
+
+    vertices = response.geometry.vertices[mask].copy()
+
+    if len(selected_indices) < 2:
+        edges = np.empty((0, 2), dtype=int)
+    else:
+        index_map = {
+            original: new
+            for new, original in enumerate(selected_indices)
+        }
+
+        selected_set = set(selected_indices)
+
+        edges_list: list[tuple[int, int]] = []
+
+        for a, b in response.geometry.edges:
+            if a in selected_set and b in selected_set:
+                edges_list.append(
+                    (index_map[a], index_map[b])
+                )
+
+        edges = np.asarray(
+            edges_list,
+            dtype=int,
+        ).reshape(-1, 2)
+
+    return Geometry(
+        vertices=vertices,
+        edges=edges,
+    )
