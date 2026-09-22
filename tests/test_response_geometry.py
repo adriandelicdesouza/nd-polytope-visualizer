@@ -8,6 +8,7 @@ from nd_geometry.response_geometry import (
     sensitivity_outputs,
     sensitivity_vertices,
     normalize_outputs,
+    embed_outputs,
 )
 
 from nd_geometry.sensitivity import SensitivityData
@@ -241,3 +242,138 @@ def test_response_geometry_output_at_rejects_invalid_index():
 
     with pytest.raises(IndexError):
         response.output_at(4)
+
+def test_embed_outputs():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+    geometry = embed_outputs(response)
+
+    assert geometry.vertices.shape == (4, 3)
+    assert geometry.edges.shape == (4, 2)
+
+    np.testing.assert_allclose(
+        geometry.vertices,
+        np.array([
+            [0.02, 0.10, 10.0],
+            [0.02, 0.20, 20.0],
+            [0.10, 0.10, 30.0],
+            [0.10, 0.20, 40.0],
+        ]),
+    )
+
+def test_embed_outputs_normalized():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+    geometry = embed_outputs(response, normalize=True)
+
+    np.testing.assert_allclose(
+        geometry.vertices[:, -1],
+        np.array([0.0, 1 / 3, 2 / 3, 1.0]),
+    )
+
+def test_embed_outputs_preserves_edges():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+    geometry = embed_outputs(response)
+
+    np.testing.assert_array_equal(
+        geometry.edges,
+        response.geometry.edges,
+    )
+
+def test_embed_outputs_does_not_modify_response():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    original_vertices = response.geometry.vertices.copy()
+
+    embed_outputs(response)
+
+    np.testing.assert_array_equal(
+        response.geometry.vertices,
+        original_vertices,
+    )
+
+def test_embed_outputs_scales_response_axis():
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+    geometry = embed_outputs(response, scale=0.1)
+
+    np.testing.assert_allclose(
+        geometry.vertices[:, -1],
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+
+
+def test_embed_outputs_rejects_non_positive_scale():
+    data = SensitivityData(
+        values=np.zeros((2, 2)),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.02, 0.10]),
+            np.array([0.10, 0.20]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    with pytest.raises(ValueError):
+        embed_outputs(response, scale=0.0)
+
+    with pytest.raises(ValueError):
+        embed_outputs(response, scale=-1.0)

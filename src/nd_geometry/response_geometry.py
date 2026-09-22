@@ -95,6 +95,26 @@ def build_response_geometry(
         outputs=outputs,
     )
 
+def embed_outputs(
+    response: ResponseGeometry,
+    normalize: bool = False,
+) -> Geometry:
+    """Embed model outputs as an additional geometric coordinate."""
+    outputs = (
+        response.normalized_outputs
+        if normalize
+        else response.outputs
+    )
+
+    vertices = np.column_stack(
+        (response.geometry.vertices, outputs)
+    )
+
+    return Geometry(
+        vertices=vertices,
+        edges=response.geometry.edges.copy(),
+    )
+
 @dataclass(frozen=True)
 class ResponseGeometry:
     """Geometry representing an N-dimensional model response."""
@@ -120,4 +140,31 @@ class ResponseGeometry:
         if not 0 <= index < len(self.outputs):
             raise IndexError("output index out of range")
 
-        return float(self.outputs[index])
+        return float(self.outputs[index])   
+
+def embed_outputs(
+    response: ResponseGeometry,
+    normalize: bool = False,
+    scale: float = 1.0,
+) -> Geometry:
+    """Embed model outputs as an additional geometric coordinate."""
+    if scale <= 0:
+        raise ValueError("scale must be > 0")
+
+    outputs = (
+        response.normalized_outputs
+        if normalize
+        else response.outputs
+    )
+
+    vertices = np.column_stack(
+        (
+            response.geometry.vertices,
+            outputs * scale,
+        )
+    )
+
+    return Geometry(
+        vertices=vertices,
+        edges=response.geometry.edges.copy(),
+    )
