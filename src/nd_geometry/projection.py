@@ -23,6 +23,19 @@ class Projection:
                     "rotation axes must be different"
                 )
 
+    def matrix(self, source_dimensions: int) -> np.ndarray:
+        """Create the configured projection matrix."""
+        matrix = orthogonal_projection_matrix(
+            source_dimensions=source_dimensions,
+            target_dimensions=self.target_dimensions,
+            seed=self.seed,
+        )
+
+        return rotate_projection_basis_sequence(
+            matrix,
+            list(self.rotations),
+        )
+
 def project(
     geometry: Geometry,
     target_dimensions: int,

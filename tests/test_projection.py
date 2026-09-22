@@ -351,3 +351,41 @@ def test_rotate_projection_basis_sequence():
         np.eye(3),
         atol=1e-12,
     )
+
+def test_projection_requires_positive_target_dimensions():
+    from nd_geometry.projection import Projection
+
+    with pytest.raises(ValueError, match="target_dimensions must be >= 1"):
+        Projection(target_dimensions=0)
+
+
+def test_projection_rejects_same_rotation_axes():
+    from nd_geometry.projection import Projection
+
+    with pytest.raises(ValueError, match="rotation axes must be different"):
+        Projection(
+            target_dimensions=3,
+            rotations=((1, 1, np.pi / 4),),
+        )
+
+def test_projection_matrix_builds_configured_projection():
+    from nd_geometry.projection import Projection
+
+    projection = Projection(
+        target_dimensions=3,
+        seed=7,
+        rotations=(
+            (0, 4, np.pi / 6),
+            (1, 3, np.pi / 8),
+        ),
+    )
+
+    matrix = projection.matrix(source_dimensions=5)
+
+    assert matrix.shape == (3, 5)
+
+    np.testing.assert_allclose(
+        matrix @ matrix.T,
+        np.eye(3),
+        atol=1e-12,
+    )

@@ -1,5 +1,6 @@
 from .polytopes import Hypercube
 from .projection import (
+    Projection,
     deduplicate_geometry,
     linear_project,
     orthogonal_projection_matrix,
@@ -25,4 +26,5 @@ __all__ = [
     "slice_geometry",
     "rotate_projection_basis",
     "rotate_projection_basis_sequence",
+    "Projection",
 ]
