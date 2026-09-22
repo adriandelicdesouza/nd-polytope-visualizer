@@ -325,3 +325,29 @@ def test_rotate_projection_basis_preserves_orthogonality():
         np.eye(3),
         atol=1e-12,
     )
+
+def test_rotate_projection_basis_sequence():
+    from nd_geometry.projection import (
+        orthogonal_projection_matrix,
+        rotate_projection_basis_sequence,
+    )
+
+    matrix = orthogonal_projection_matrix(
+        source_dimensions=5,
+        target_dimensions=3,
+        seed=42,
+    )
+
+    rotated = rotate_projection_basis_sequence(
+        matrix,
+        [
+            (0, 4, np.pi / 6),
+            (1, 3, np.pi / 8),
+        ],
+    )
+
+    np.testing.assert_allclose(
+        rotated @ rotated.T,
+        np.eye(3),
+        atol=1e-12,
+    )

@@ -3,7 +3,26 @@ from __future__ import annotations
 import numpy as np
 
 from .slicing import Geometry
+from dataclasses import dataclass
 
+
+@dataclass(frozen=True)
+class Projection:
+    """Configuration for an N-dimensional linear projection."""
+
+    target_dimensions: int
+    seed: int | None = None
+    rotations: tuple[tuple[int, int, float], ...] = ()
+    
+        def __post_init__(self) -> None:
+        if self.target_dimensions < 1:
+            raise ValueError("target_dimensions must be >= 1")
+
+        for axis_a, axis_b, _ in self.rotations:
+            if axis_a == axis_b:
+                raise ValueError(
+                    "rotation axes must be different"
+                )
 
 def project(
     geometry: Geometry,
@@ -223,3 +242,21 @@ def rotate_projection_basis(
     rotation[axis_b, axis_b] = cosine
 
     return matrix @ rotation.T
+
+def rotate_projection_basis_sequence(
+    matrix: np.ndarray,
+    rotations: list[tuple[int, int, float]],
+) -> np.ndarray:
+    """Apply multiple coordinate-plane rotations to a projection basis."""
+    result = matrix.copy()
+
+    for axis_a, axis_b, angle in rotations:
+        result = rotate_projection_basis(
+            result,
+            axis_a,
+            axis_b,
+            angle,
+        )
+
+    return result
+

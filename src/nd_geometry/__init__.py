@@ -5,6 +5,7 @@ from .projection import (
     orthogonal_projection_matrix,
     project,
     rotate_projection_basis,
+    rotate_projection_basis_sequence,
 )
 
 from .rendering import PlotlyRenderer, Renderer
@@ -23,4 +24,5 @@ __all__ = [
     "rotate",
     "slice_geometry",
     "rotate_projection_basis",
+    "rotate_projection_basis_sequence",
 ]
