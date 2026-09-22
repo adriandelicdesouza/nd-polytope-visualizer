@@ -643,10 +643,11 @@ def test_continuous_response_level_set():
         target=20.0,
     )
 
-    assert crossings.shape == (2, 2)
+    assert crossings.geometry.vertices.shape == (2, 2)
+    assert crossings.target == 20.0
 
     np.testing.assert_allclose(
-        crossings,
+        crossings.geometry.vertices,
         np.array([
             [0.5, 0.0],
             [0.0, 1.0],

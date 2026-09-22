@@ -13,6 +13,13 @@ class ResponseGeometry:
     geometry: Geometry
     outputs: np.ndarray
 
+@dataclass(frozen=True)
+class LevelSetGeometry:
+    """Geometry representing a continuous response level set."""
+
+    geometry: Geometry
+    target: float
+
 def sensitivity_vertices(
     data: SensitivityData,
 ) -> Geometry:
@@ -251,7 +258,7 @@ def interpolate_response_crossing(
 def continuous_response_level_set(
     response: ResponseGeometry,
     target: float,
-) -> np.ndarray:
+) -> LevelSetGeometry:
     """Return parameter-space points where response edges cross target."""
     crossings: list[np.ndarray] = []
 
@@ -280,9 +287,15 @@ def continuous_response_level_set(
         crossings.append(crossing)
 
     if not crossings:
-        return np.empty(
-            (0, response.geometry.vertices.shape[1]),
-            dtype=float,
+        return LevelSetGeometry(
+            geometry=Geometry(
+                vertices=np.empty(
+                    (0, response.geometry.vertices.shape[1]),
+                    dtype=float,
+                ),
+                edges=np.empty((0, 2), dtype=int),
+            ),
+            target=target,
         )
 
     unique_crossings: list[np.ndarray] = []
@@ -294,4 +307,10 @@ def continuous_response_level_set(
         ):
             unique_crossings.append(crossing)
 
-    return np.asarray(unique_crossings, dtype=float)
+    return LevelSetGeometry(
+        geometry=Geometry(
+            vertices=np.asarray(unique_crossings, dtype=float),
+            edges=np.empty((0, 2), dtype=int),
+        ),
+        target=target,
+    )
