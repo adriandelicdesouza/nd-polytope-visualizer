@@ -8,6 +8,7 @@ from nd_geometry import (
     orthogonal_projection_matrix,
     rotate,
     slice_geometry,
+    rotate_projection_basis,
 )
 
 from nd_geometry.topology import hypercube_edges
@@ -48,7 +49,12 @@ matrix = orthogonal_projection_matrix(
     seed=PROJECTION_SEED,
 )
 
-from nd_geometry import linear_project
+matrix = rotate_projection_basis(
+    matrix,
+    axis_a=0,
+    axis_b=4,
+    angle=np.pi / 6,
+)
 
 geometry = linear_project(
     geometry,
