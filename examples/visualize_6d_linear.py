@@ -56,6 +56,13 @@ matrix = rotate_projection_basis(
     angle=np.pi / 6,
 )
 
+matrix = rotate_projection_basis(
+    matrix,
+    axis_a=1,
+    axis_b=3,
+    angle=np.pi / 8,
+)
+
 geometry = linear_project(
     geometry,
     matrix,
