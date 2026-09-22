@@ -15,6 +15,13 @@ from .slicing import Geometry, slice_geometry
 from .parameter_space import ParameterSpace
 from .evaluation import EvaluationResult, evaluate_model
 from .sensitivity import SensitivityData
+from .response_geometry import (
+    ResponseGeometry,
+    build_response_geometry,
+    sensitivity_edges,
+    sensitivity_outputs,
+    sensitivity_vertices,
+)
 
 __all__ = [
     "Geometry",
