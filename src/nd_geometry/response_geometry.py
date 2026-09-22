@@ -260,7 +260,8 @@ def continuous_response_level_set(
     target: float,
 ) -> LevelSetGeometry:
     """Return parameter-space points where response edges cross target."""
-    crossings: list[np.ndarray] = []
+    crossings: list[tuple[np.ndarray, tuple[int, int]]] = []
+    crossing_edges: set[tuple[int, int]] = set()
 
     for a, b in response.geometry.edges:
         output_a = response.outputs[a]
@@ -284,7 +285,7 @@ def continuous_response_level_set(
             target,
         )
 
-        crossings.append(crossing)
+        crossings.append((crossing, (a, b)))
 
     if not crossings:
         return LevelSetGeometry(
@@ -299,18 +300,57 @@ def continuous_response_level_set(
         )
 
     unique_crossings: list[np.ndarray] = []
+    crossing_map: dict[int, int] = {}
 
-    for crossing in crossings:
-        if not any(
-            np.allclose(crossing, existing, atol=1e-9, rtol=0)
-            for existing in unique_crossings
-        ):
+    for crossing_index, (crossing, _) in enumerate(crossings):
+        existing_index = next(
+            (
+                index
+                for index, existing in enumerate(unique_crossings)
+                if np.allclose(
+                    crossing,
+                    existing,
+                    atol=1e-9,
+                    rtol=0,
+                )
+            ),
+            None,
+        )
+
+        if existing_index is None:
+            existing_index = len(unique_crossings)
             unique_crossings.append(crossing)
+
+        crossing_map[crossing_index] = existing_index
+
+    crossing_edges: set[tuple[int, int]] = set()
+
+    for index_a, (_, edge_a) in enumerate(crossings):
+        for index_b, (_, edge_b) in enumerate(crossings):
+            if index_a >= index_b:
+                continue
+
+            if edge_a == edge_b:
+                continue
+
+            shared_vertices = set(edge_a) & set(edge_b)
+
+            if shared_vertices:
+                vertex_a = crossing_map[index_a]
+                vertex_b = crossing_map[index_b]
+
+                if vertex_a != vertex_b:
+                    crossing_edges.add(
+                        (min(vertex_a, vertex_b), max(vertex_a, vertex_b))
+                    )
 
     return LevelSetGeometry(
         geometry=Geometry(
             vertices=np.asarray(unique_crossings, dtype=float),
-            edges=np.empty((0, 2), dtype=int),
+            edges=np.asarray(
+                sorted(crossing_edges),
+                dtype=int,
+            ).reshape(-1, 2),
         ),
         target=target,
     )

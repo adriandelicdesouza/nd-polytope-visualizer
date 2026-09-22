@@ -653,3 +653,59 @@ def test_continuous_response_level_set():
             [0.0, 1.0],
         ]),
     )
+
+def test_continuous_response_level_set_builds_topology() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("growth", "margin"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    level_set = continuous_response_level_set(
+        response,
+        target=20.0,
+    )
+
+    assert level_set.geometry.vertices.shape == (2, 2)
+    assert level_set.geometry.edges.shape == (1, 2)
+
+    np.testing.assert_array_equal(
+        level_set.geometry.edges,
+        np.array([[0, 1]]),
+    )
+
+def test_continuous_response_level_set_builds_3d_topology() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [[0.0, 1.0],
+             [1.0, 2.0]],
+
+            [[1.0, 2.0],
+             [2.0, 3.0]],
+        ]),
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    level_set = continuous_response_level_set(
+        response,
+        target=1.0,
+    )
+
+    assert level_set.geometry.vertices.shape[1] == 3
+    assert len(level_set.geometry.vertices) > 0
+    assert len(level_set.geometry.edges) > 0
