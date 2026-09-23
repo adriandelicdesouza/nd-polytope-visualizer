@@ -13,6 +13,16 @@ from nd_geometry.response_geometry import (
     interpolate_response_crossing,
     continuous_response_level_set,
     sensitivity_cells,
+    sensitivity_cell_simplices,
+    sensitivity_simplex_level_set_points,
+    sensitivity_simplex_level_set_facets,
+    unique_sensitivity_simplex_level_set_facets,
+    sensitivity_simplex_level_set_facet_indices,
+    sensitivity_simplex_level_set_facet_adjacency,
+    sensitivity_simplex_level_set_components,
+    build_simplex_level_set_geometry,
+    continuous_response_simplex_level_set,
+    sensitivity_simplex_level_set_vertices,
     sensitivity_cell_facets,
     unique_sensitivity_facets,
     sensitivity_cell_facet_adjacency,
@@ -43,7 +53,6 @@ from nd_geometry.response_geometry import (
 )
 from nd_geometry.slicing import Geometry
 from nd_geometry.sensitivity import SensitivityData
-
 
 def test_sensitivity_vertices_returns_parameter_grid():
     data = SensitivityData(
@@ -1709,7 +1718,7 @@ def test_sensitivity_cell_level_set_edges_3d_forms_closed_boundary():
         target=1.0,
     )
 
-    assert len(edges) == 3
+    assert len(edges) == 6
 
     assert all(
         edge.shape == (2, 3)
@@ -1916,3 +1925,341 @@ def test_level_set_component_reports_vertex_and_edge_counts():
 
     assert component.vertex_count == 4
     assert component.edge_count == 4
+
+def test_sensitivity_cell_simplices() -> None:
+    values = np.zeros((2, 2, 2))
+
+    data = SensitivityData(
+        values=values,
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    simplices = sensitivity_cell_simplices(data)
+
+    assert simplices.shape == (6, 4)
+    assert len({tuple(simplex) for simplex in simplices}) == 6
+
+def test_sensitivity_cell_simplices_scales_with_dimension() -> None:
+    for dimensions in range(2, 6):
+        shape = (2,) * dimensions
+
+        data = SensitivityData(
+            values=np.zeros(shape),
+            parameter_names=tuple(
+                f"x{axis}"
+                for axis in range(dimensions)
+            ),
+            axes=tuple(
+                np.array([0.0, 1.0])
+                for _ in range(dimensions)
+            ),
+        )
+
+        simplices = sensitivity_cell_simplices(data)
+
+        assert simplices.shape == (
+            __import__("math").factorial(dimensions),
+            dimensions + 1,
+        )
+
+def test_sensitivity_simplex_level_set_points() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    data = SensitivityData(
+        values=values,
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    intersections = sensitivity_simplex_level_set_points(
+        data,
+        1.0,
+    )
+
+    assert len(intersections) == 6
+    assert all(points.shape[1] == 3 for points in intersections)
+    assert all(len(points) >= 2 for points in intersections)
+
+def test_sensitivity_simplex_level_set_facets() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    data = SensitivityData(
+        values=values,
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_simplex_level_set_facets(
+        data,
+        1.0,
+    )
+
+    assert len(facets) == 6
+    assert all(facet.shape == (3, 3) for facet in facets)
+
+def test_unique_sensitivity_simplex_level_set_facets() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    data = SensitivityData(
+        values=values,
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = unique_sensitivity_simplex_level_set_facets(
+        data,
+        1.0,
+    )
+
+    assert len(facets) == 6
+    assert all(facet.shape == (3, 3) for facet in facets)
+
+def test_sensitivity_simplex_level_set_facets_triangulates_quadrilateral() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    data = SensitivityData(
+        values=values,
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_simplex_level_set_facets(
+        data,
+        1.5,
+    )
+
+    assert len(facets) == 12
+    assert all(facet.shape == (3, 3) for facet in facets)
+
+def test_sensitivity_simplex_level_set_facet_indices() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    data = SensitivityData(
+        values=values,
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_simplex_level_set_facet_indices(
+        data,
+        1.0,
+    )
+
+    assert all(
+        facet.shape == (3,)
+        for facet in facets
+    )
+    assert all(
+        len(set(int(vertex) for vertex in facet)) == 3
+        for facet in facets
+    )
+    
+def test_sensitivity_simplex_level_set_facet_adjacency() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    data = SensitivityData(
+        values=values,
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    adjacency = sensitivity_simplex_level_set_facet_adjacency(
+        data,
+        1.0,
+    )
+
+    assert len(adjacency) == 6
+    assert all(
+        all(
+            neighbor != facet
+            for neighbor in neighbors
+        )
+        for facet, neighbors in enumerate(adjacency)
+    )
+
+def test_sensitivity_simplex_level_set_components() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    data = SensitivityData(
+        values=values,
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    components = sensitivity_simplex_level_set_components(
+        data,
+        1.0,
+    )
+
+    assert len(components) == 1
+    assert components[0].shape == (6,)
+    assert np.array_equal(
+        components[0],
+        np.arange(6),
+    )
+
+def test_build_simplex_level_set_geometry() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    data = SensitivityData(
+        values=values,
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    geometry = build_simplex_level_set_geometry(
+        data,
+        1.0,
+    )
+
+    assert geometry.vertices.shape == (6, 3)
+    assert geometry.edges.shape == (6, 2)
+
+def test_continuous_response_simplex_level_set() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    response = build_response_geometry(
+        SensitivityData(
+            values=values,
+            parameter_names=("x", "y", "z"),
+            axes=(
+                np.array([0.0, 1.0]),
+                np.array([0.0, 1.0]),
+                np.array([0.0, 1.0]),
+            ),
+        )
+    )
+
+    level_set = continuous_response_simplex_level_set(
+        response,
+        1.0,
+    )
+
+    assert isinstance(level_set, LevelSetGeometry)
+    assert level_set.target == 1.0
+    assert level_set.geometry.vertices.shape == (6, 3)
+    assert level_set.geometry.edges.shape == (6, 2)
+    assert level_set.component_count == 1
+
+def test_continuous_response_simplex_level_set_non_degenerate() -> None:
+    values = np.array(
+        [
+            [[0.0, 1.0], [1.0, 2.0]],
+            [[1.0, 2.0], [2.0, 3.0]],
+        ]
+    )
+
+    response = build_response_geometry(
+        SensitivityData(
+            values=values,
+            parameter_names=("x", "y", "z"),
+            axes=(
+                np.array([0.0, 1.0]),
+                np.array([0.0, 1.0]),
+                np.array([0.0, 1.0]),
+            ),
+        )
+    )
+
+    level_set = continuous_response_simplex_level_set(
+        response,
+        1.5,
+    )
+
+    assert level_set.component_count == 1
+    assert level_set.geometry.vertices.shape[1] == 3
+    assert level_set.geometry.edges.shape[1] == 2
+
+    facets = sensitivity_simplex_level_set_facet_indices(
+        response,
+        1.5,
+    )
+
+    assert len(facets) > 0
+    assert all(
+        len(facet) == 3
+        for facet in facets
+    )
+
