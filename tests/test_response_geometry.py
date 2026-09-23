@@ -12,8 +12,24 @@ from nd_geometry.response_geometry import (
     response_level_set,
     interpolate_response_crossing,
     continuous_response_level_set,
+    sensitivity_cells,
+    sensitivity_cell_facets,
+    unique_sensitivity_facets,
+    sensitivity_cell_facet_adjacency,
+    sensitivity_cell_indices,
+    sensitivity_cell_neighbors,
+    sensitivity_boundary_facets,
+    sensitivity_facet_output_ranges,
+    sensitivity_intersected_facets,
+    sensitivity_facet_crossings,
+    sensitivity_cell_crossings,
+    sensitivity_cell_level_set_edges,
+    sensitivity_cell_level_set_points,
+    sensitivity_level_set_vertices,
+    sensitivity_level_set_edges,
+    build_continuous_level_set_geometry,
 )
-
+from nd_geometry.slicing import Geometry
 from nd_geometry.sensitivity import SensitivityData
 
 
@@ -709,3 +725,552 @@ def test_continuous_response_level_set_builds_3d_topology() -> None:
     assert level_set.geometry.vertices.shape[1] == 3
     assert len(level_set.geometry.vertices) > 0
     assert len(level_set.geometry.edges) > 0
+
+def test_sensitivity_cells_returns_2d_grid_cells() -> None:
+    data = SensitivityData(
+        values=np.zeros((3, 3)),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    cells = sensitivity_cells(data)
+
+    assert cells.shape == (4, 4)
+
+    np.testing.assert_array_equal(
+        cells[0],
+        np.array([0, 1, 3, 4]),
+    )
+
+def test_sensitivity_cells_returns_3d_grid_cells() -> None:
+    data = SensitivityData(
+        values=np.zeros((2, 2, 2)),
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    cells = sensitivity_cells(data)
+
+    assert cells.shape == (1, 8)
+
+    np.testing.assert_array_equal(
+        cells[0],
+        np.arange(8),
+    )
+
+def test_sensitivity_cells_returns_4d_grid_cells() -> None:
+    data = SensitivityData(
+        values=np.zeros((2, 2, 2, 2)),
+        parameter_names=("a", "b", "c", "d"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    cells = sensitivity_cells(data)
+
+    assert cells.shape == (1, 16)
+
+    np.testing.assert_array_equal(
+        cells[0],
+        np.arange(16),
+    )
+
+def test_sensitivity_cell_facets_returns_2d_cell_edges() -> None:
+    data = SensitivityData(
+        values=np.zeros((2, 2)),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_cell_facets(data)
+
+    assert facets.shape == (4, 2)
+
+    expected = {
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (2, 3),
+    }
+
+    actual = {
+        tuple(sorted(facet))
+        for facet in facets
+    }
+
+    assert actual == expected
+
+def test_sensitivity_cell_facets_returns_3d_cell_faces() -> None:
+    data = SensitivityData(
+        values=np.zeros((2, 2, 2)),
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_cell_facets(data)
+
+    assert facets.shape == (6, 4)
+
+    assert {
+        tuple(sorted(facet))
+        for facet in facets
+    } == {
+        (0, 1, 2, 3),
+        (0, 1, 4, 5),
+        (0, 2, 4, 6),
+        (1, 3, 5, 7),
+        (2, 3, 6, 7),
+        (4, 5, 6, 7),
+    }
+
+def test_sensitivity_cell_facets_returns_4d_cell_facets() -> None:
+    data = SensitivityData(
+        values=np.zeros((2, 2, 2, 2)),
+        parameter_names=("a", "b", "c", "d"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_cell_facets(data)
+
+    assert facets.shape == (8, 8)
+
+    assert {
+        tuple(sorted(facet))
+        for facet in facets
+    } == {
+        (0, 1, 2, 3, 4, 5, 6, 7),
+        (8, 9, 10, 11, 12, 13, 14, 15),
+        (0, 1, 2, 3, 8, 9, 10, 11),
+        (4, 5, 6, 7, 12, 13, 14, 15),
+        (0, 1, 4, 5, 8, 9, 12, 13),
+        (2, 3, 6, 7, 10, 11, 14, 15),
+        (0, 2, 4, 6, 8, 10, 12, 14),
+        (1, 3, 5, 7, 9, 11, 13, 15),
+    }
+
+def test_sensitivity_cell_facets_returns_facets_for_multiple_cells() -> None:
+    data = SensitivityData(
+        values=np.zeros((3, 2)),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_cell_facets(data)
+
+    assert facets.shape == (8, 2)
+
+    actual = {
+        tuple(sorted(facet))
+        for facet in facets
+    }
+
+    expected = {
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (2, 3),
+        (2, 3),
+        (2, 4),
+        (3, 5),
+        (4, 5),
+    }
+
+    assert actual == expected
+
+def test_unique_sensitivity_facets_removes_shared_facets() -> None:
+    data = SensitivityData(
+        values=np.zeros((3, 2)),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = unique_sensitivity_facets(data)
+
+    assert facets.shape == (7, 2)
+
+    np.testing.assert_array_equal(
+        facets,
+        np.array([
+            [0, 1],
+            [0, 2],
+            [1, 3],
+            [2, 3],
+            [2, 4],
+            [3, 5],
+            [4, 5],
+        ]),
+    )
+
+def test_sensitivity_cell_facet_adjacency_identifies_shared_facets() -> None:
+    data = SensitivityData(
+        values=np.zeros((3, 2)),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets, adjacency = sensitivity_cell_facet_adjacency(data)
+
+    assert facets.shape == (7, 2)
+    assert len(adjacency) == 2
+    assert all(len(cell) == 4 for cell in adjacency)
+
+    shared = set(adjacency[0]) & set(adjacency[1])
+
+    assert len(shared) == 1
+
+    shared_facet = facets[next(iter(shared))]
+
+    np.testing.assert_array_equal(
+        shared_facet,
+        np.array([2, 3]),
+    )
+
+def test_sensitivity_cell_indices_returns_grid_indices() -> None:
+    data = SensitivityData(
+        values=np.zeros((3, 2)),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    indices = sensitivity_cell_indices(data)
+
+    assert indices.shape == (2, 2)
+
+    np.testing.assert_array_equal(
+        indices,
+        np.array([
+            [0, 0],
+            [1, 0],
+        ]),
+    )
+
+def test_sensitivity_cell_neighbors_returns_2d_neighbors() -> None:
+    data = SensitivityData(
+        values=np.zeros((3, 3)),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    neighbors = sensitivity_cell_neighbors(data)
+
+    assert len(neighbors) == 4
+
+    assert set(neighbors[0]) == {1, 2}
+    assert set(neighbors[1]) == {0, 3}
+    assert set(neighbors[2]) == {0, 3}
+    assert set(neighbors[3]) == {1, 2}
+
+def test_sensitivity_boundary_facets_excludes_internal_facets() -> None:
+    data = SensitivityData(
+        values=np.zeros((3, 2)),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_boundary_facets(data)
+
+    assert facets.shape == (6, 2)
+
+    assert {
+        tuple(sorted(facet))
+        for facet in facets
+    } == {
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (2, 4),
+        (3, 5),
+        (4, 5),
+    }
+
+def test_sensitivity_facet_output_ranges_returns_minimums_and_maximums() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets, minimums, maximums = sensitivity_facet_output_ranges(data)
+
+    assert facets.shape == (4, 2)
+
+    np.testing.assert_array_equal(
+        minimums,
+        np.array([10.0, 30.0, 10.0, 20.0]),
+    )
+
+    np.testing.assert_array_equal(
+        maximums,
+        np.array([20.0, 40.0, 30.0, 40.0]),
+    )
+
+def test_sensitivity_intersected_facets_returns_target_crossings() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_intersected_facets(
+        data,
+        target=20.0,
+    )
+
+    assert facets.shape == (3, 2)
+
+    assert {
+        tuple(sorted(facet))
+        for facet in facets
+    } == {
+        (0, 1),
+        (0, 2),
+        (1, 3),
+    }
+
+def test_sensitivity_facet_crossings_returns_interpolated_points() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    crossings = sensitivity_facet_crossings(
+        data,
+        target=20.0,
+    )
+
+    assert len(crossings) == 3
+
+    actual = {
+        tuple(np.round(crossing, 9))
+        for crossing in crossings
+    }
+
+    assert actual == {
+        (0.0, 1.0),
+        (0.5, 0.0),
+        (0.0, 1.0),
+    }
+
+def test_sensitivity_cell_crossings_deduplicates_shared_crossings() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    crossings = sensitivity_cell_crossings(
+        data,
+        target=20.0,
+    )
+
+    assert len(crossings) == 1
+    assert len(crossings[0]) == 2
+
+    np.testing.assert_allclose(
+        sorted(crossings[0], key=lambda point: tuple(point)),
+        np.array([
+            [0.0, 1.0],
+            [0.5, 0.0],
+        ]),
+    )
+
+def test_sensitivity_cell_level_set_edges_connects_2d_crossings() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    edges = sensitivity_cell_level_set_edges(
+        data,
+        target=20.0,
+    )
+
+    assert len(edges) == 1
+    assert edges[0].shape == (2, 2)
+
+    np.testing.assert_allclose(
+        sorted(edges[0], key=lambda point: tuple(point)),
+        np.array([
+            [0.0, 1.0],
+            [0.5, 0.0],
+        ]),
+    )
+
+def test_sensitivity_cell_level_set_points_supports_3d_cells() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [[0.0, 1.0],
+             [1.0, 2.0]],
+
+            [[1.0, 2.0],
+             [2.0, 3.0]],
+        ]),
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    points = sensitivity_cell_level_set_points(
+        data,
+        target=1.0,
+    )
+
+    assert len(points) == 1
+    assert points[0].shape[1] == 3
+    assert len(points[0]) > 2
+
+def test_sensitivity_level_set_vertices_deduplicates_cell_points() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    vertices = sensitivity_level_set_vertices(
+        data,
+        target=20.0,
+    )
+
+    assert vertices.shape == (2, 2)
+
+    np.testing.assert_allclose(
+        sorted(vertices, key=lambda point: tuple(point)),
+        np.array([
+            [0.0, 1.0],
+            [0.5, 0.0],
+        ]),
+    )
+
+def test_sensitivity_level_set_edges_builds_global_2d_topology() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    edges = sensitivity_level_set_edges(
+        data,
+        target=20.0,
+    )
+
+    assert edges.shape == (1, 2)
+
+    np.testing.assert_array_equal(
+        edges,
+        np.array([[0, 1]]),
+    )
+
+def test_build_continuous_level_set_geometry_returns_geometry() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    geometry = build_continuous_level_set_geometry(
+        data,
+        target=20.0,
+    )
+
+    assert isinstance(geometry, Geometry)
+    assert geometry.vertices.shape == (2, 2)
+    assert geometry.edges.shape == (1, 2)
+
+    np.testing.assert_array_equal(
+        geometry.edges,
+        np.array([[0, 1]]),
+    )
