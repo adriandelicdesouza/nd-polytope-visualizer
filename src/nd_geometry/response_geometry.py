@@ -931,24 +931,6 @@ def sensitivity_cell_level_set_boundary(
         if len(points) < 2:
             continue
 
-        if dimensions == 3 and len(points) >= 3:
-            center = np.mean(points, axis=0)
-
-            _, _, vh = np.linalg.svd(
-                points - center,
-                full_matrices=False,
-            )
-
-            basis_a = vh[0]
-            basis_b = vh[1]
-
-            angles = np.arctan2(
-                (points - center) @ basis_b,
-                (points - center) @ basis_a,
-            )
-
-            points = points[np.argsort(angles)]
-
         boundaries.append(points)
 
     return boundaries
@@ -976,7 +958,7 @@ def sensitivity_cell_level_set_edges(
             edges.append(boundary.copy())
             continue
 
-        if data.dimensions != 3:
+        if data.dimensions > 3:
             continue
 
         for index in range(len(boundary)):
