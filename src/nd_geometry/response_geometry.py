@@ -976,6 +976,9 @@ def sensitivity_cell_level_set_edges(
             edges.append(boundary.copy())
             continue
 
+        if data.dimensions != 3:
+            continue
+
         for index in range(len(boundary)):
             next_index = (index + 1) % len(boundary)
 

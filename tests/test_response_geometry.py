@@ -1697,6 +1697,73 @@ def test_sensitivity_cell_level_set_boundary_2d_returns_segment():
             for existing in boundaries[0]
         )
 
+def test_sensitivity_cell_level_set_boundary_4d_returns_all_crossings():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [
+                    [[0.0, 1.0], [1.0, 2.0]],
+                    [[1.0, 2.0], [2.0, 3.0]],
+                ],
+                [
+                    [[1.0, 2.0], [2.0, 3.0]],
+                    [[2.0, 3.0], [3.0, 4.0]],
+                ],
+            ]
+        ),
+        parameter_names=("x", "y", "z", "w"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    boundaries = sensitivity_cell_level_set_boundary(
+        data,
+        target=2.0,
+    )
+
+    assert len(boundaries) == 1
+    assert boundaries[0].shape[1] == 4
+    assert len(boundaries[0]) >= 8
+    assert np.allclose(
+        np.sum(boundaries[0], axis=1),
+        2.0,
+    )
+    assert len(np.unique(boundaries[0], axis=0)) == len(boundaries[0])
+
+def test_sensitivity_cell_level_set_edges_4d_does_not_create_cyclic_edges():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [
+                    [[0.0, 1.0], [1.0, 2.0]],
+                    [[1.0, 2.0], [2.0, 3.0]],
+                ],
+                [
+                    [[1.0, 2.0], [2.0, 3.0]],
+                    [[2.0, 3.0], [3.0, 4.0]],
+                ],
+            ]
+        ),
+        parameter_names=("x", "y", "z", "w"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    edges = sensitivity_cell_level_set_edges(
+        data,
+        target=2.0,
+    )
+
+    assert len(edges) == 0
+
 def test_sensitivity_cell_level_set_edges_3d_forms_closed_boundary():
     data = SensitivityData(
         values=np.array(
