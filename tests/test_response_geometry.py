@@ -25,9 +25,21 @@ from nd_geometry.response_geometry import (
     sensitivity_cell_crossings,
     sensitivity_cell_level_set_edges,
     sensitivity_cell_level_set_points,
+    sensitivity_cell_level_set_boundary,
     sensitivity_level_set_vertices,
     sensitivity_level_set_edges,
+    sensitivity_level_set_facets,
+    sensitivity_level_set_facet_indices,
+    sensitivity_level_set_facet_adjacency,
+    sensitivity_level_set_components,
+    sensitivity_level_set_component_vertices,
+    sensitivity_level_set_component_edges,
     build_continuous_level_set_geometry,
+    build_level_set_components,
+    response_grid_data,
+    unique_sensitivity_level_set_facets,
+    LevelSetComponent,
+    LevelSetGeometry,
 )
 from nd_geometry.slicing import Geometry
 from nd_geometry.sensitivity import SensitivityData
@@ -1274,3 +1286,633 @@ def test_build_continuous_level_set_geometry_returns_geometry() -> None:
         geometry.edges,
         np.array([[0, 1]]),
     )
+
+def test_response_grid_data_reconstructs_sensitivity_data() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+    reconstructed = response_grid_data(response)
+
+    np.testing.assert_array_equal(
+        reconstructed.values,
+        data.values,
+    )
+    assert reconstructed.parameter_names == data.parameter_names
+
+    for actual, expected in zip(
+        reconstructed.axes,
+        data.axes,
+    ):
+        np.testing.assert_array_equal(actual, expected)
+
+def test_sensitivity_cells_accepts_response_geometry() -> None:
+    data = SensitivityData(
+        values=np.arange(9.0).reshape(3, 3),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    np.testing.assert_array_equal(
+        sensitivity_cells(response),
+        sensitivity_cells(data),
+    )
+
+def test_sensitivity_cell_facets_accepts_response_geometry() -> None:
+    data = SensitivityData(
+        values=np.arange(9.0).reshape(3, 3),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    np.testing.assert_array_equal(
+        sensitivity_cell_facets(response),
+        sensitivity_cell_facets(data),
+    )
+
+def test_sensitivity_cell_facet_adjacency_accepts_response_geometry() -> None:
+    data = SensitivityData(
+        values=np.arange(9.0).reshape(3, 3),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    facets_data, adjacency_data = sensitivity_cell_facet_adjacency(data)
+    facets_response, adjacency_response = (
+        sensitivity_cell_facet_adjacency(response)
+    )
+
+    np.testing.assert_array_equal(
+        facets_response,
+        facets_data,
+    )
+    assert adjacency_response == adjacency_data
+
+def test_sensitivity_cell_neighbors_accepts_response_geometry() -> None:
+    data = SensitivityData(
+        values=np.arange(9.0).reshape(3, 3),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    assert (
+        sensitivity_cell_neighbors(response)
+        == sensitivity_cell_neighbors(data)
+    )
+
+def test_sensitivity_boundary_facets_accepts_response_geometry() -> None:
+    data = SensitivityData(
+        values=np.arange(6.0).reshape(3, 2),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    np.testing.assert_array_equal(
+        sensitivity_boundary_facets(response),
+        sensitivity_boundary_facets(data),
+    )
+
+def test_sensitivity_cell_level_set_points_accepts_response_geometry() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    response_points = sensitivity_cell_level_set_points(
+        response,
+        target=20.0,
+    )
+    data_points = sensitivity_cell_level_set_points(
+        data,
+        target=20.0,
+    )
+
+    assert len(response_points) == len(data_points)
+
+    for actual, expected in zip(response_points, data_points):
+        np.testing.assert_allclose(actual, expected)
+
+def test_sensitivity_level_set_vertices_accepts_response_geometry() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    np.testing.assert_allclose(
+        sensitivity_level_set_vertices(
+            response,
+            target=20.0,
+        ),
+        sensitivity_level_set_vertices(
+            data,
+            target=20.0,
+        ),
+    )
+
+def test_sensitivity_level_set_edges_accepts_response_geometry() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    np.testing.assert_array_equal(
+        sensitivity_level_set_edges(
+            response,
+            target=20.0,
+        ),
+        sensitivity_level_set_edges(
+            data,
+            target=20.0,
+        ),
+    )
+
+def test_build_continuous_level_set_geometry_accepts_response_geometry() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [10.0, 20.0],
+            [30.0, 40.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    geometry_from_response = build_continuous_level_set_geometry(
+        response,
+        target=20.0,
+    )
+    geometry_from_data = build_continuous_level_set_geometry(
+        data,
+        target=20.0,
+    )
+
+    np.testing.assert_allclose(
+        geometry_from_response.vertices,
+        geometry_from_data.vertices,
+    )
+    np.testing.assert_array_equal(
+        geometry_from_response.edges,
+        geometry_from_data.edges,
+    )
+
+def test_sensitivity_level_set_edges_connect_3d_level_set_vertices() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [
+                [0.0, 1.0],
+                [1.0, 2.0],
+            ],
+            [
+                [1.0, 2.0],
+                [2.0, 3.0],
+            ],
+        ]),
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    level_set = continuous_response_level_set(
+        response,
+        target=1.0,
+    )
+
+    assert len(level_set.geometry.vertices) == 6
+    assert len(level_set.geometry.edges) > 0
+
+    assert np.all(
+        level_set.geometry.edges[:, 0]
+        < len(level_set.geometry.vertices)
+    )
+    assert np.all(
+        level_set.geometry.edges[:, 1]
+        < len(level_set.geometry.vertices)
+    )
+
+def test_sensitivity_level_set_facets_returns_3d_level_set_points() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [
+                [0.0, 1.0],
+                [1.0, 2.0],
+            ],
+            [
+                [1.0, 2.0],
+                [2.0, 3.0],
+            ],
+        ]),
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    facets = sensitivity_level_set_facets(
+        response,
+        target=1.0,
+    )
+
+    assert len(facets) == 1
+    assert facets[0].shape[1] == 3
+    assert len(facets[0]) == 6
+
+def test_unique_sensitivity_level_set_facets_deduplicates_facets() -> None:
+    data = SensitivityData(
+        values=np.array([
+            [0.0, 1.0, 2.0],
+            [1.0, 2.0, 3.0],
+        ]),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    facets = unique_sensitivity_level_set_facets(
+        response,
+        target=1.0,
+    )
+
+    assert len(facets) == 1
+    assert np.allclose(
+        facets[0],
+        np.array([
+            [0.0, 1.0],
+            [1.0, 0.0],
+        ]),
+    )
+
+    for facet in facets:
+        assert facet.shape[1] == 2
+
+def test_sensitivity_cell_level_set_boundary_orders_3d_points():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [[0.0, 1.0], [1.0, 2.0]],
+                [[1.0, 2.0], [2.0, 3.0]],
+            ]
+        ),
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    boundaries = sensitivity_cell_level_set_boundary(
+        data,
+        target=1.0,
+    )
+
+    assert len(boundaries) == 1
+    assert boundaries[0].shape[1] == 3
+    assert len(boundaries[0]) >= 3
+
+def test_sensitivity_cell_level_set_boundary_2d_returns_segment():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [0.0, 2.0],
+                [2.0, 0.0],
+            ]
+        ),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    boundaries = sensitivity_cell_level_set_boundary(
+        data,
+        target=1.0,
+    )
+
+    assert len(boundaries) == 1
+    assert boundaries[0].shape == (4, 2)
+
+    expected = np.array([
+        [0.0, 0.5],
+        [0.5, 0.0],
+        [0.5, 1.0],
+        [1.0, 0.5],
+    ])
+
+    for point in expected:
+        assert any(
+            np.allclose(
+                point,
+                existing,
+                atol=1e-9,
+                rtol=0,
+            )
+            for existing in boundaries[0]
+        )
+
+def test_sensitivity_cell_level_set_edges_3d_forms_closed_boundary():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [[0.0, 1.0], [1.0, 2.0]],
+                [[1.0, 2.0], [2.0, 3.0]],
+            ]
+        ),
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    edges = sensitivity_cell_level_set_edges(
+        data,
+        target=1.0,
+    )
+
+    assert len(edges) == 3
+
+    assert all(
+        edge.shape == (2, 3)
+        for edge in edges
+    )
+
+def test_sensitivity_level_set_facet_indices_match_vertices():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [[0.0, 1.0], [1.0, 2.0]],
+                [[1.0, 2.0], [2.0, 3.0]],
+            ]
+        ),
+        parameter_names=("x", "y", "z"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_level_set_facet_indices(
+        data,
+        target=1.0,
+    )
+
+    assert len(facets) == 1
+    assert facets[0].shape == (6,)
+    assert np.array_equal(
+        facets[0],
+        np.arange(6),
+    )
+
+def test_sensitivity_level_set_facet_adjacency_detects_shared_vertices():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [0.0, 2.0, 0.0],
+                [2.0, 0.0, 2.0],
+            ]
+        ),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    facets = sensitivity_level_set_facet_indices(
+        data,
+        target=1.0,
+    )
+
+    adjacency = sensitivity_level_set_facet_adjacency(
+        data,
+        target=1.0,
+    )
+
+    assert len(facets) == 2
+    assert adjacency == [[1], [0]]
+
+def test_sensitivity_level_set_components_groups_connected_facets():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [0.0, 2.0, 0.0],
+                [2.0, 0.0, 2.0],
+            ]
+        ),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    components = sensitivity_level_set_components(
+        data,
+        target=1.0,
+    )
+
+    assert len(components) == 1
+    assert np.array_equal(
+        components[0],
+        np.array([0, 1]),
+    )
+
+def test_sensitivity_level_set_component_vertices_returns_component_geometry():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [0.0, 2.0, 0.0],
+                [2.0, 0.0, 2.0],
+            ]
+        ),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    components = sensitivity_level_set_component_vertices(
+        data,
+        target=1.0,
+    )
+
+    assert len(components) == 1
+    assert components[0].shape == (7, 2)
+
+def test_sensitivity_level_set_component_edges_returns_component_edges():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [0.0, 2.0, 0.0],
+                [2.0, 0.0, 2.0],
+            ]
+        ),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    components = sensitivity_level_set_component_edges(
+        data,
+        target=1.0,
+    )
+
+    assert len(components) == 1
+    assert components[0].shape[1] == 2
+    assert len(components[0]) > 0
+
+def test_build_level_set_components_returns_local_geometry():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [0.0, 2.0, 0.0],
+                [2.0, 0.0, 2.0],
+            ]
+        ),
+        parameter_names=("x", "y"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0, 2.0]),
+        ),
+    )
+
+    components = build_level_set_components(
+        data,
+        target=1.0,
+    )
+
+    assert len(components) == 1
+    assert components[0].vertices.shape == (7, 2)
+    assert components[0].edges.shape[1] == 2
+    assert len(components[0].edges) > 0
+
+def test_level_set_geometry_reports_component_count():
+    response = ResponseGeometry(
+        geometry=Geometry(
+            vertices=np.array([
+                [0.0, 0.0],
+                [1.0, 0.0],
+            ]),
+            edges=np.array([
+                [0, 1],
+            ]),
+        ),
+        outputs=np.array([
+            0.0,
+            1.0,
+        ]),
+        parameter_names=("x",),
+        axes=(
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    level_set = continuous_response_level_set(
+        response,
+        target=0.5,
+    )
+
+    assert level_set.component_count == 0
+
+def test_level_set_component_reports_vertex_and_edge_counts():
+    component = LevelSetComponent(
+        vertices=np.array([
+            [0.0, 0.5],
+            [0.5, 0.0],
+            [0.5, 1.0],
+            [1.0, 0.5],
+        ]),
+        edges=np.array([
+            [0, 1],
+            [1, 2],
+            [2, 3],
+            [3, 0],
+        ]),
+    )
+
+    assert component.vertex_count == 4
+    assert component.edge_count == 4

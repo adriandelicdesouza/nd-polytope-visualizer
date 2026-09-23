@@ -15,12 +15,48 @@ class ResponseGeometry:
     parameter_names: tuple[str, ...]
     axes: tuple[np.ndarray, ...]
 
+
+def response_grid_data(
+    response: ResponseGeometry,
+) -> SensitivityData:
+    """Return sensitivity data reconstructed from response metadata."""
+    shape = tuple(len(axis) for axis in response.axes)
+
+    return SensitivityData(
+        values=response.outputs.reshape(shape),
+        parameter_names=response.parameter_names,
+        axes=response.axes,
+    )
+
+@dataclass(frozen=True)
+class LevelSetComponent:
+    """A connected component of a response level set."""
+
+    vertices: np.ndarray
+    edges: np.ndarray
+
+    @property
+    def vertex_count(self) -> int:
+        """Return the number of vertices in the component."""
+        return len(self.vertices)
+
+    @property
+    def edge_count(self) -> int:
+        """Return the number of edges in the component."""
+        return len(self.edges)
+
 @dataclass(frozen=True)
 class LevelSetGeometry:
     """Geometry representing a continuous response level set."""
 
     geometry: Geometry
     target: float
+    components: tuple[LevelSetComponent, ...]
+
+    @property
+    def component_count(self) -> int:
+        """Return the number of connected level-set components."""
+        return len(self.components)
 
 def sensitivity_vertices(
     data: SensitivityData,
@@ -70,9 +106,12 @@ def sensitivity_edges(
     return np.asarray(edges, dtype=int).reshape(-1, 2)
 
 def sensitivity_cells(
-    data: SensitivityData,
+    data: SensitivityData | ResponseGeometry,
 ) -> np.ndarray:
     """Return the vertex indices belonging to every grid cell."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
     shape = data.values.shape
     dimensions = data.dimensions
 
@@ -118,9 +157,12 @@ def sensitivity_cell_indices(
     ).reshape(-1, data.dimensions)
 
 def sensitivity_cell_neighbors(
-    data: SensitivityData,
+    data: SensitivityData | ResponseGeometry,
 ) -> list[list[int]]:
     """Return neighboring cell indices for every sensitivity cell."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
     cell_indices = sensitivity_cell_indices(data)
 
     if len(cell_indices) == 0:
@@ -154,9 +196,12 @@ def sensitivity_cell_neighbors(
     return neighbors
 
 def sensitivity_cell_facets(
-    data: SensitivityData,
+    data: SensitivityData | ResponseGeometry,
 ) -> np.ndarray:
     """Return the boundary edges/facets of every grid cell."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
     shape = data.values.shape
     dimensions = data.dimensions
 
@@ -201,9 +246,12 @@ def unique_sensitivity_facets(
     )
 
 def sensitivity_cell_facet_adjacency(
-    data: SensitivityData,
+    data: SensitivityData | ResponseGeometry,
 ) -> tuple[np.ndarray, list[list[int]]]:
     """Return unique facets and the facet indices belonging to each cell."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+        
     cells = sensitivity_cells(data)
     cell_facets = sensitivity_cell_facets(data)
 
@@ -235,9 +283,11 @@ def sensitivity_cell_facet_adjacency(
     )
 
 def sensitivity_boundary_facets(
-    data: SensitivityData,
+    data: SensitivityData | ResponseGeometry,
 ) -> np.ndarray:
     """Return facets belonging to only one sensitivity grid cell."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
     facets, adjacency = sensitivity_cell_facet_adjacency(data)
 
     facet_usage = np.zeros(
@@ -402,42 +452,145 @@ def sensitivity_cell_crossings(
 
     return crossings_by_cell
 
-def sensitivity_cell_level_set_edges(
-    data: SensitivityData,
+def sensitivity_cell_level_set_boundary(
+    data: SensitivityData | ResponseGeometry,
     target: float,
 ) -> list[np.ndarray]:
-    """Return level-set edges constructed within each grid cell."""
-    crossings_by_cell = sensitivity_cell_crossings(
+    """Return ordered level-set boundary points for each intersected cell."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    dimensions = data.dimensions
+    outputs = data.values.reshape(-1)
+    vertices = sensitivity_vertices(data).vertices
+    cells = sensitivity_cells(data)
+
+    boundaries: list[np.ndarray] = []
+
+    for cell in cells:
+        crossings: list[np.ndarray] = []
+
+        for i in range(len(cell)):
+            for j in range(i + 1, len(cell)):
+                a = int(cell[i])
+                b = int(cell[j])
+
+                difference = np.abs(
+                    vertices[a] - vertices[b]
+                )
+
+                if np.count_nonzero(difference) != 1:
+                    continue
+
+                output_a = outputs[a]
+                output_b = outputs[b]
+
+                if output_a == output_b:
+                    continue
+
+                if not (
+                    min(output_a, output_b)
+                    <= target
+                    <= max(output_a, output_b)
+                ):
+                    continue
+
+                crossing = interpolate_response_crossing(
+                    vertices[a],
+                    output_a,
+                    vertices[b],
+                    output_b,
+                    target,
+                )
+
+                if not any(
+                    np.allclose(
+                        crossing,
+                        existing,
+                        atol=1e-9,
+                        rtol=0,
+                    )
+                    for existing in crossings
+                ):
+                    crossings.append(crossing)
+
+        if len(crossings) < 2:
+            continue
+
+        points = np.asarray(
+            crossings,
+            dtype=float,
+        )
+
+        if dimensions == 3 and len(points) >= 3:
+            center = np.mean(points, axis=0)
+
+            _, _, vh = np.linalg.svd(
+                points - center,
+                full_matrices=False,
+            )
+
+            basis_a = vh[0]
+            basis_b = vh[1]
+
+            angles = np.arctan2(
+                (points - center) @ basis_b,
+                (points - center) @ basis_a,
+            )
+
+            order = np.argsort(angles)
+            points = points[order]
+
+        boundaries.append(points)
+
+    return boundaries
+
+def sensitivity_cell_level_set_edges(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[np.ndarray]:
+    """Return level-set edges for each intersected sensitivity cell."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    boundaries = sensitivity_cell_level_set_boundary(
         data,
         target,
     )
 
-    cell_edges: list[np.ndarray] = []
+    edges: list[np.ndarray] = []
 
-    for crossings in crossings_by_cell:
-        if len(crossings) < 2:
+    for boundary in boundaries:
+        if len(boundary) < 2:
             continue
 
-        if len(crossings) == 2:
-            cell_edges.append(
+        if len(boundary) == 2:
+            edges.append(boundary.copy())
+            continue
+
+        for index in range(len(boundary)):
+            next_index = (index + 1) % len(boundary)
+
+            edges.append(
                 np.asarray(
-                    crossings,
+                    [
+                        boundary[index],
+                        boundary[next_index],
+                    ],
                     dtype=float,
                 )
             )
-            continue
 
-        raise ValueError(
-            "cell contains more than two level-set crossings"
-        )
+    return edges
 
-    return cell_edges
 
 def sensitivity_cell_level_set_points(
-    data: SensitivityData,
+    data: SensitivityData | ResponseGeometry,
     target: float,
 ) -> list[np.ndarray]:
     """Return level-set crossing points for every intersected cell."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
     crossings_by_cell = sensitivity_cell_crossings(
         data,
         target,
@@ -453,10 +606,12 @@ def sensitivity_cell_level_set_points(
     ]
 
 def sensitivity_level_set_vertices(
-    data: SensitivityData,
+    data: SensitivityData | ResponseGeometry,
     target: float,
 ) -> np.ndarray:
     """Return unique vertices of the continuous response level set."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
     cell_points = sensitivity_cell_level_set_points(
         data,
         target,
@@ -480,7 +635,13 @@ def sensitivity_level_set_vertices(
             unique_vertices.append(point.copy())
 
     return np.asarray(
-        unique_vertices,
+        sorted(
+            unique_vertices,
+            key=lambda point: tuple(
+                -coordinate
+                for coordinate in point
+            ),
+        ),
         dtype=float,
     ).reshape(
         -1,
@@ -488,29 +649,29 @@ def sensitivity_level_set_vertices(
     )
 
 def sensitivity_level_set_edges(
-    data: SensitivityData,
+    data: SensitivityData | ResponseGeometry,
     target: float,
 ) -> np.ndarray:
     """Return unique edges of the continuous response level set."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
     vertices = sensitivity_level_set_vertices(
         data,
         target,
     )
 
-    cell_points = sensitivity_cell_level_set_points(
+    cell_edges = sensitivity_cell_level_set_edges(
         data,
         target,
     )
 
     edges: set[tuple[int, int]] = set()
 
-    for points in cell_points:
-        if len(points) != 2:
-            continue
-
+    for cell_edge in cell_edges:
         indices: list[int] = []
 
-        for point in points:
+        for point in cell_edge:
             index = next(
                 (
                     vertex_index
@@ -528,21 +689,379 @@ def sensitivity_level_set_edges(
             if index is not None:
                 indices.append(index)
 
-        if len(indices) == 2 and indices[0] != indices[1]:
-            edges.add(
-                (
-                    min(indices),
-                    max(indices),
-                )
-            )
+        if len(indices) != 2:
+            continue
+
+        a, b = sorted(indices)
+
+        if a != b:
+            edges.add((a, b))
 
     return np.asarray(
         sorted(edges),
         dtype=int,
     ).reshape(-1, 2)
 
+def sensitivity_level_set_facets(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[np.ndarray]:
+    """Return level-set facets generated within each sensitivity cell."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    cell_points = sensitivity_cell_level_set_points(
+        data,
+        target,
+    )
+
+    facets: list[np.ndarray] = []
+
+    for points in cell_points:
+        if len(points) < 2:
+            continue
+
+        facets.append(
+            np.asarray(
+                points,
+                dtype=float,
+            )
+        )
+
+    return facets
+
+def unique_sensitivity_level_set_facets(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[np.ndarray]:
+    """Return unique level-set facets across sensitivity cells."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    facets = sensitivity_level_set_facets(
+        data,
+        target,
+    )
+
+    unique_facets: list[np.ndarray] = []
+
+    for facet in facets:
+        if any(
+            len(facet) == len(existing)
+            and all(
+                any(
+                    np.allclose(
+                        point,
+                        existing_point,
+                        atol=1e-9,
+                        rtol=0,
+                    )
+                    for existing_point in existing
+                )
+                for point in facet
+            )
+            for existing in unique_facets
+        ):
+            continue
+
+        unique_facets.append(facet.copy())
+
+    return unique_facets
+
+def sensitivity_level_set_facet_indices(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[np.ndarray]:
+    """Return global vertex indices for every unique level-set facet."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    vertices = sensitivity_level_set_vertices(
+        data,
+        target,
+    )
+
+    facets = unique_sensitivity_level_set_facets(
+        data,
+        target,
+    )
+
+    indexed_facets: list[np.ndarray] = []
+
+    for facet in facets:
+        indices: list[int] = []
+
+        for point in facet:
+            index = next(
+                (
+                    vertex_index
+                    for vertex_index, vertex in enumerate(vertices)
+                    if np.allclose(
+                        point,
+                        vertex,
+                        atol=1e-9,
+                        rtol=0,
+                    )
+                ),
+                None,
+            )
+
+            if index is not None:
+                indices.append(index)
+
+        if len(indices) >= 2:
+            indexed_facets.append(
+                np.asarray(
+                    sorted(set(indices)),
+                    dtype=int,
+                )
+            )
+
+    return indexed_facets
+
+def sensitivity_level_set_facet_adjacency(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[list[int]]:
+    """Return neighboring level-set facets that share vertices."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    facets = sensitivity_level_set_facet_indices(
+        data,
+        target,
+    )
+
+    adjacency: list[list[int]] = [
+        [] for _ in range(len(facets))
+    ]
+
+    for i in range(len(facets)):
+        vertices_a = set(int(vertex) for vertex in facets[i])
+
+        for j in range(i + 1, len(facets)):
+            vertices_b = set(int(vertex) for vertex in facets[j])
+
+            if vertices_a & vertices_b:
+                adjacency[i].append(j)
+                adjacency[j].append(i)
+
+    return adjacency
+
+def sensitivity_level_set_components(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[np.ndarray]:
+    """Return connected components of the response level-set facets."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    facets = sensitivity_level_set_facet_indices(
+        data,
+        target,
+    )
+
+    adjacency = sensitivity_level_set_facet_adjacency(
+        data,
+        target,
+    )
+
+    visited: set[int] = set()
+    components: list[np.ndarray] = []
+
+    for start in range(len(facets)):
+        if start in visited:
+            continue
+
+        stack = [start]
+        component: list[int] = []
+        visited.add(start)
+
+        while stack:
+            current = stack.pop()
+            component.append(current)
+
+            for neighbor in adjacency[current]:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    stack.append(neighbor)
+
+        components.append(
+            np.asarray(
+                sorted(component),
+                dtype=int,
+            )
+        )
+
+    return components
+
+def sensitivity_level_set_component_vertices(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[np.ndarray]:
+    """Return parameter-space vertices for each level-set component."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    vertices = sensitivity_level_set_vertices(
+        data,
+        target,
+    )
+
+    facets = sensitivity_level_set_facet_indices(
+        data,
+        target,
+    )
+
+    components = sensitivity_level_set_components(
+        data,
+        target,
+    )
+
+    component_vertices: list[np.ndarray] = []
+
+    for component in components:
+        indices = sorted(
+            {
+                int(vertex)
+                for facet_index in component
+                for vertex in facets[int(facet_index)]
+            }
+        )
+
+        component_vertices.append(
+            vertices[indices].copy()
+        )
+
+    return component_vertices
+
+def sensitivity_level_set_component_edges(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[np.ndarray]:
+    """Return global level-set edges for each connected component."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    vertices = sensitivity_level_set_vertices(
+        data,
+        target,
+    )
+
+    edges = sensitivity_level_set_edges(
+        data,
+        target,
+    )
+
+    components = sensitivity_level_set_components(
+        data,
+        target,
+    )
+
+    component_edges: list[np.ndarray] = []
+
+    for component in components:
+        component_facets = {
+            int(facet_index)
+            for facet_index in component
+        }
+
+        facets = sensitivity_level_set_facet_indices(
+            data,
+            target,
+        )
+
+        component_vertices = {
+            int(vertex)
+            for facet_index in component_facets
+            for vertex in facets[facet_index]
+        }
+
+        selected_edges: list[np.ndarray] = []
+
+        for edge in edges:
+            if all(
+                int(vertex) in component_vertices
+                for vertex in edge
+            ):
+                selected_edges.append(edge)
+
+        component_edges.append(
+            np.asarray(
+                selected_edges,
+                dtype=int,
+            ).reshape(-1, 2)
+        )
+
+    return component_edges
+
+def build_level_set_components(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[LevelSetComponent]:
+    """Build connected level-set components."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    vertices = sensitivity_level_set_vertices(
+        data,
+        target,
+    )
+
+    component_vertices = sensitivity_level_set_component_vertices(
+        data,
+        target,
+    )
+
+    component_edges = sensitivity_level_set_component_edges(
+        data,
+        target,
+    )
+
+    components: list[LevelSetComponent] = []
+
+    for points, edges in zip(
+        component_vertices,
+        component_edges,
+    ):
+        local_indices: dict[int, int] = {}
+
+        for local_index, point in enumerate(points):
+            global_index = next(
+                vertex_index
+                for vertex_index, vertex in enumerate(vertices)
+                if np.allclose(
+                    point,
+                    vertex,
+                    atol=1e-9,
+                    rtol=0,
+                )
+            )
+
+            local_indices[global_index] = local_index
+
+        local_edges = np.asarray(
+            [
+                [
+                    local_indices[int(edge[0])],
+                    local_indices[int(edge[1])],
+                ]
+                for edge in edges
+            ],
+            dtype=int,
+        ).reshape(-1, 2)
+
+        components.append(
+            LevelSetComponent(
+                vertices=points.copy(),
+                edges=local_edges,
+            )
+        )
+
+    return components
+
 def build_continuous_level_set_geometry(
-    data: SensitivityData,
+    data: SensitivityData | ResponseGeometry,
     target: float,
 ) -> Geometry:
     """Build continuous level-set geometry from sensitivity data."""
@@ -747,99 +1266,21 @@ def continuous_response_level_set(
     response: ResponseGeometry,
     target: float,
 ) -> LevelSetGeometry:
-    """Return parameter-space points where response edges cross target."""
-    crossings: list[tuple[np.ndarray, tuple[int, int]]] = []
-    crossing_edges: set[tuple[int, int]] = set()
-
-    for a, b in response.geometry.edges:
-        output_a = response.outputs[a]
-        output_b = response.outputs[b]
-
-        if output_a == output_b:
-            continue
-
-        if not (
-            min(output_a, output_b)
-            <= target
-            <= max(output_a, output_b)
-        ):
-            continue
-
-        crossing = interpolate_response_crossing(
-            response.geometry.vertices[a],
-            output_a,
-            response.geometry.vertices[b],
-            output_b,
-            target,
-        )
-
-        crossings.append((crossing, (a, b)))
-
-    if not crossings:
-        return LevelSetGeometry(
-            geometry=Geometry(
-                vertices=np.empty(
-                    (0, response.geometry.vertices.shape[1]),
-                    dtype=float,
-                ),
-                edges=np.empty((0, 2), dtype=int),
-            ),
-            target=target,
-        )
-
-    unique_crossings: list[np.ndarray] = []
-    crossing_map: dict[int, int] = {}
-
-    for crossing_index, (crossing, _) in enumerate(crossings):
-        existing_index = next(
-            (
-                index
-                for index, existing in enumerate(unique_crossings)
-                if np.allclose(
-                    crossing,
-                    existing,
-                    atol=1e-9,
-                    rtol=0,
-                )
-            ),
-            None,
-        )
-
-        if existing_index is None:
-            existing_index = len(unique_crossings)
-            unique_crossings.append(crossing)
-
-        crossing_map[crossing_index] = existing_index
-
-    crossing_edges: set[tuple[int, int]] = set()
-
-    for index_a, (_, edge_a) in enumerate(crossings):
-        for index_b, (_, edge_b) in enumerate(crossings):
-            if index_a >= index_b:
-                continue
-
-            if edge_a == edge_b:
-                continue
-
-            shared_vertices = set(edge_a) & set(edge_b)
-
-            if shared_vertices:
-                vertex_a = crossing_map[index_a]
-                vertex_b = crossing_map[index_b]
-
-                if vertex_a != vertex_b:
-                    crossing_edges.add(
-                        (min(vertex_a, vertex_b), max(vertex_a, vertex_b))
-                    )
-
-    return LevelSetGeometry(
-        geometry=Geometry(
-            vertices=np.asarray(unique_crossings, dtype=float),
-            edges=np.asarray(
-                sorted(crossing_edges),
-                dtype=int,
-            ).reshape(-1, 2),
-        ),
-        target=target,
+    """Return parameter-space geometry where response equals target."""
+    geometry = build_continuous_level_set_geometry(
+        response,
+        target,
     )
 
+    components = tuple(
+        build_level_set_components(
+            response,
+            target,
+        )
+    )
+
+    return LevelSetGeometry(
+        geometry=geometry,
+        target=target,
+        components=components,
+    )
