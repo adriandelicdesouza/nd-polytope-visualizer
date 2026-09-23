@@ -44,6 +44,7 @@ from nd_geometry.response_geometry import (
     sensitivity_level_set_components,
     sensitivity_level_set_component_vertices,
     sensitivity_level_set_component_edges,
+    sensitivity_level_set_facet_cells,
     build_continuous_level_set_geometry,
     build_level_set_components,
     response_grid_data,
@@ -2330,3 +2331,96 @@ def test_continuous_response_simplex_level_set_non_degenerate() -> None:
         for facet in facets
     )
 
+def test_sensitivity_level_set_facets_returns_4d_level_set_points() -> None:
+    data = SensitivityData(
+        values=np.array(
+            [
+                [
+                    [[0.0, 1.0], [1.0, 2.0]],
+                    [[1.0, 2.0], [2.0, 3.0]],
+                ],
+                [
+                    [[1.0, 2.0], [2.0, 3.0]],
+                    [[2.0, 3.0], [3.0, 4.0]],
+                ],
+            ]
+        ),
+        parameter_names=("x", "y", "z", "w"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    response = build_response_geometry(data)
+
+    facets = sensitivity_level_set_facets(
+        response,
+        target=2.0,
+    )
+
+    assert len(facets) == 1
+    assert facets[0].shape[1] == 4
+    assert len(facets[0]) == 26
+
+def test_level_set_geometry_reports_level_set_dimension():
+    geometry = LevelSetGeometry(
+        geometry=Geometry(
+            vertices=np.zeros((4, 4)),
+            edges=np.empty((0, 2), dtype=int),
+        ),
+        target=1.0,
+        components=(),
+    )
+
+    assert geometry.level_set_dimension == 3
+
+def test_level_set_geometry_dimension_is_one_less_than_response_dimension():
+    for dimensions in (2, 3, 4):
+        geometry = LevelSetGeometry(
+            geometry=Geometry(
+                vertices=np.zeros((2, dimensions)),
+                edges=np.empty((0, 2), dtype=int),
+            ),
+            target=1.0,
+            components=(),
+        )
+
+        assert geometry.level_set_dimension == dimensions - 1
+
+def test_sensitivity_level_set_facet_cells_4d_returns_vertex_connectivity():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [
+                    [[0.0, 1.0], [1.0, 2.0]],
+                    [[1.0, 2.0], [2.0, 3.0]],
+                ],
+                [
+                    [[1.0, 2.0], [2.0, 3.0]],
+                    [[2.0, 3.0], [3.0, 4.0]],
+                ],
+            ]
+        ),
+        parameter_names=("x", "y", "z", "w"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_level_set_facet_cells(
+        data,
+        target=2.0,
+    )
+
+    assert len(facets) > 0
+    assert all(
+        facet.ndim == 1
+        and len(facet) >= 4
+        for facet in facets
+    )

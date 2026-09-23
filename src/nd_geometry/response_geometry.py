@@ -58,6 +58,19 @@ class LevelSetGeometry:
         """Return the number of connected level-set components."""
         return len(self.components)
 
+    @property
+    def level_set_dimension(self) -> int:
+        """Return the geometric dimension of the level set."""
+        if self.geometry.vertices.ndim != 2:
+            raise ValueError("geometry vertices must be a 2D array")
+
+        dimensions = self.geometry.vertices.shape[1]
+
+        if dimensions < 2:
+            raise ValueError("level-set geometry must have at least 2 dimensions")
+
+        return dimensions - 1
+
 def sensitivity_vertices(
     data: SensitivityData,
 ) -> Geometry:
@@ -1122,6 +1135,57 @@ def sensitivity_level_set_facets(
         )
 
     return facets
+
+def sensitivity_level_set_facet_cells(
+    data: SensitivityData | ResponseGeometry,
+    target: float,
+) -> list[np.ndarray]:
+    """Return vertex connectivity for level-set facets."""
+    if isinstance(data, ResponseGeometry):
+        data = response_grid_data(data)
+
+    facets = sensitivity_level_set_facets(
+        data,
+        target,
+    )
+
+    vertices = sensitivity_level_set_vertices(
+        data,
+        target,
+    )
+
+    facet_cells: list[np.ndarray] = []
+
+    for facet in facets:
+        indices: list[int] = []
+
+        for point in facet:
+            index = next(
+                (
+                    vertex_index
+                    for vertex_index, vertex in enumerate(vertices)
+                    if np.allclose(
+                        point,
+                        vertex,
+                        atol=1e-9,
+                        rtol=0,
+                    )
+                ),
+                None,
+            )
+
+            if index is not None and index not in indices:
+                indices.append(index)
+
+        if len(indices) >= 4:
+            facet_cells.append(
+                np.asarray(
+                    sorted(indices),
+                    dtype=int,
+                )
+            )
+
+    return facet_cells
 
 def unique_sensitivity_level_set_facets(
     data: SensitivityData | ResponseGeometry,
