@@ -2424,3 +2424,98 @@ def test_sensitivity_level_set_facet_cells_4d_returns_vertex_connectivity():
         and len(facet) >= 4
         for facet in facets
     )
+
+def test_sensitivity_level_set_facet_cells_4d_is_not_single_vertex_set():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [
+                    [[0.0, 1.0], [1.0, 2.0]],
+                    [[1.0, 2.0], [2.0, 3.0]],
+                ],
+                [
+                    [[1.0, 2.0], [2.0, 3.0]],
+                    [[2.0, 3.0], [3.0, 4.0]],
+                ],
+            ]
+        ),
+        parameter_names=("x", "y", "z", "w"),
+        axes=(
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, 1.0]),
+        ),
+    )
+
+    facets = sensitivity_level_set_facet_cells(
+        data,
+        target=2.0,
+    )
+
+    assert len(facets) > 1
+    assert all(len(facet) == 4 for facet in facets)
+
+def test_sensitivity_level_set_facet_cells_4d_are_tetrahedra():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [
+                    [[0.0, 1.0], [1.0, 2.0]],
+                    [[1.0, 2.0], [2.0, 3.0]],
+                ],
+                [
+                    [[1.0, 2.0], [2.0, 3.0]],
+                    [[2.0, 3.0], [3.0, 4.0]],
+                ],
+            ]
+        ),
+        parameter_names=("x", "y", "z", "w"),
+        axes=(np.array([0.0, 1.0]),) * 4,
+    )
+
+    facets = sensitivity_level_set_facet_cells(
+        data,
+        target=2.0,
+    )
+
+    assert len(facets) > 1
+    assert all(
+        facet.shape == (4,)
+        for facet in facets
+    )
+
+def test_sensitivity_level_set_facet_cells_4d_have_nonzero_volume():
+    data = SensitivityData(
+        values=np.array(
+            [
+                [
+                    [[0.0, 1.0], [1.0, 2.0]],
+                    [[1.0, 2.0], [2.0, 3.0]],
+                ],
+                [
+                    [[1.0, 2.0], [2.0, 3.0]],
+                    [[2.0, 3.0], [3.0, 4.0]],
+                ],
+            ]
+        ),
+        parameter_names=("x", "y", "z", "w"),
+        axes=(np.array([0.0, 1.0]),) * 4,
+    )
+
+    facets = sensitivity_level_set_facet_cells(
+        data,
+        target=2.0,
+    )
+
+    vertices = sensitivity_level_set_vertices(
+        data,
+        target=2.0,
+    )
+
+    for facet in facets:
+        points = vertices[facet]
+        matrix = points[1:] - points[0]
+        volume_rank = np.linalg.matrix_rank(matrix)
+
+        assert volume_rank == 3
