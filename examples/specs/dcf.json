@@ -1,0 +1,86 @@
+{
+  "name": "Single-company DCF (v2 conventions)",
+  "function": "dcf_v2_model:dcf_model_outputs",
+  "sys_path": [
+    ".."
+  ],
+  "inputs": [
+    {
+      "name": "revenue_growth",
+      "unit": "%",
+      "low": 0.02,
+      "high": 0.1,
+      "base": 0.06
+    },
+    {
+      "name": "growth_fade_to",
+      "unit": "%",
+      "low": 0.0,
+      "high": 0.05,
+      "base": 0.03
+    },
+    {
+      "name": "ebit_margin",
+      "unit": "%",
+      "low": 0.1,
+      "high": 0.3,
+      "base": 0.2
+    },
+    {
+      "name": "tax_rate",
+      "unit": "%",
+      "low": 0.2,
+      "high": 0.3,
+      "base": 0.25
+    },
+    {
+      "name": "capex_pct",
+      "unit": "%",
+      "low": 0.03,
+      "high": 0.07,
+      "base": 0.05
+    },
+    {
+      "name": "da_pct",
+      "unit": "%",
+      "low": 0.03,
+      "high": 0.06,
+      "base": 0.045
+    },
+    {
+      "name": "nwc_pct",
+      "unit": "%",
+      "low": 0.05,
+      "high": 0.15,
+      "base": 0.1
+    },
+    {
+      "name": "wacc",
+      "unit": "%",
+      "low": 0.08,
+      "high": 0.12,
+      "base": 0.1
+    },
+    {
+      "name": "terminal_growth",
+      "unit": "%",
+      "low": 0.01,
+      "high": 0.03,
+      "base": 0.02
+    }
+  ],
+  "outputs": [
+    {
+      "name": "implied_price",
+      "unit": "$/share"
+    },
+    {
+      "name": "tv_share",
+      "unit": "%"
+    },
+    {
+      "name": "exit_multiple",
+      "unit": "x EBITDA"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "name": "Sea freight (container ship) linked to oil",
+  "function": "sea_freight_model:sea_freight",
+  "sys_path": [
+    ".."
+  ],
+  "inputs": [
+    {
+      "name": "brent_price",
+      "unit": "$/bbl",
+      "low": 60,
+      "high": 120,
+      "base": 90
+    },
+    {
+      "name": "vlsfo_premium",
+      "unit": "x Brent",
+      "low": 0.95,
+      "high": 1.25,
+      "base": 1.1
+    },
+    {
+      "name": "ship_speed_knots",
+      "unit": "knots",
+      "low": 16,
+      "high": 24,
+      "base": 20
+    },
+    {
+      "name": "route_distance_nm",
+      "unit": "nm",
+      "low": 10600,
+      "high": 13800,
+      "base": 10600
+    },
+    {
+      "name": "time_charter_usd_per_day",
+      "unit": "USD/day",
+      "low": 40000,
+      "high": 60000,
+      "base": 50000
+    },
+    {
+      "name": "load_factor",
+      "unit": "%",
+      "low": 0.6,
+      "high": 0.95,
+      "base": 0.85
+    },
+    {
+      "name": "port_delay_days",
+      "unit": "days",
+      "low": 0,
+      "high": 15,
+      "base": 0
+    },
+    {
+      "name": "fuel_shock",
+      "unit": "%",
+      "low": 0,
+      "high": 0.45,
+      "base": 0
+    },
+    {
+      "name": "canal_toll_usd",
+      "unit": "USD",
+      "low": 0,
+      "high": 800000,
+      "base": 500000
+    },
+    {
+      "name": "port_fixed_fee_usd",
+      "unit": "USD/call",
+      "low": 20000,
+      "high": 80000,
+      "base": 40000
+    },
+    {
+      "name": "port_dues_usd_per_gt",
+      "unit": "USD/GT",
+      "low": 0.25,
+      "high": 1.0,
+      "base": 0.5
+    }
+  ],
+  "outputs": [
+    {
+      "name": "cost_per_teu",
+      "unit": "USD/TEU"
+    },
+    {
+      "name": "transit_days",
+      "unit": "days"
+    }
+  ]
+}

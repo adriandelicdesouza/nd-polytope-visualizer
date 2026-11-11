@@ -1,0 +1,47 @@
+{
+  "name": "Regional diesel pump pass-through",
+  "function": "regional_pass_through:regional_pass_through",
+  "sys_path": [
+    ".."
+  ],
+  "inputs": [
+    {
+      "name": "brent_price",
+      "unit": "$/bbl",
+      "low": 50,
+      "high": 120,
+      "base": 90
+    },
+    {
+      "name": "diesel_crack",
+      "unit": "$/bbl",
+      "low": 10,
+      "high": 60,
+      "base": 30
+    },
+    {
+      "name": "usd_per_eur",
+      "unit": "USD/EUR",
+      "low": 1.0,
+      "high": 1.25,
+      "base": 1.12
+    },
+    {
+      "name": "freight_per_litre",
+      "unit": "USD/L",
+      "low": 0.0,
+      "high": 0.1,
+      "base": 0.02
+    }
+  ],
+  "outputs": [
+    {
+      "name": "eu_pump_ex_tax",
+      "unit": "EUR/L"
+    },
+    {
+      "name": "us_pump_ex_tax",
+      "unit": "USD/gal"
+    }
+  ]
+}
