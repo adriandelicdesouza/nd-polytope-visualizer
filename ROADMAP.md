@@ -22,3 +22,4 @@
 5. Input constraints (e.g. portfolio weights) when a portfolio model is added.
 6. Extend the 4D facet-cell work to 5D+ only if a real example needs it.
 - Done: regional diesel pass-through model (error-correction, sourced; docs/regional_pass_through.md).
+- Done: DCF design review across projects (docs/dcf_design_review.md); single-company dcf_v2 model; DCF fixes applied to dcf-core and bloomberg-terminal.
