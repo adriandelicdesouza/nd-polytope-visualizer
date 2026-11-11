@@ -61,3 +61,18 @@ Widening the ranges about 3x brings the 80% band to 67%. Beliefs from filing his
   price, or a statement that the box cannot reach it. Single-driver solves are usually unreachable with dozens of inputs.
 - `--range-width F` widens every filing-based range. The basket backtest says F of about 3 gets the 80% band from
   42% to 67%; it does not reach 75-80%, so a per-output fitted width is still open.
+## Phase 31: option-implied density combined with the DCF
+
+`nd_geometry.option_combine` takes a single-expiry chain from the options project (Yahoo via its cached adapter),
+keeps usable quotes (positive bid and ask, spread at most the mid, strike within 60% to 160% of spot), recovers
+the risk-neutral density of the price at expiry (Breeden-Litzenberger on a robust quadratic smile in log-moneyness),
+and combines it with the DCF belief density of fair value per share:
+
+- option density mapped to today by the forward factor e^{-(r-q)T} (an assumption; stated in the output)
+- combined = normalised product of the two densities; mixture (50/50) reported beside it
+- overlap reported before normalising: near zero means the DCF and the market disagree
+
+Run (needs the options project at ~/options-pricing-model; pydantic and yfinance in this venv):
+
+    PYTHONPATH=src .venv/bin/python -m nd_geometry.option_combine NFLX --expiry 2027-01-15 \
+      --facts-file /tmp/nflx_facts.json --wacc-build --per-year --years 5 --json /tmp/nflx_combo.json
