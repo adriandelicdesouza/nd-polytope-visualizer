@@ -37,7 +37,7 @@ CAPEX = ("PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProduct
 DA = ("DepreciationDepletionAndAmortization", "DepreciationAndAmortization",
       "DepreciationAmortizationAndAccretionNet", "DepreciationAmortizationAndOther")
 CFO = ("NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations")
-DILUTED_SHARES = ("WeightedAverageNumberOfDilutedSharesOutstanding",)
+DILUTED_SHARES = ("WeightedAverageNumberOfDilutedSharesOutstanding", "WeightedAverageNumberOfSharesOutstandingBasic")
 CASH = ("CashAndCashEquivalentsAtCarryingValue",)
 SHORT_INVESTMENTS = ("ShortTermInvestments", "MarketableSecuritiesCurrent", "AvailableForSaleSecuritiesDebtSecuritiesCurrent")
 DEBT_TOTAL = ("LongTermDebt",)
@@ -246,7 +246,7 @@ def _shares(facts: Facts, diluted: dict[date, Fact]) -> tuple[float, str]:
         return cover.value / 1e6, f"shares from the cover page ({cover.end})"
     if latest:
         return latest / 1e6, "shares from diluted weighted average (cover page missing or partial)"
-    raise ValueError("no share count in filings")
+    return float("nan"), "NO SHARE COUNT in filings: per-share values are not available (enough for revenue backtests)"
 
 def company_from_facts(raw: Mapping, *, ticker: str = "", cik: int = 0, as_of: date | None = None,
                        overrides: Mapping[str, tuple[float, float, float]] | None = None,
@@ -289,7 +289,7 @@ def company_from_facts(raw: Mapping, *, ticker: str = "", cik: int = 0, as_of: d
 
     add("revenue_growth", growth, (0.02, 0.06, 0.10), min_width=0.04, clip=(-0.05, 0.5))
     g1 = drivers["revenue_growth"]
-    drivers["growth_fade_to"] = DriverSpec("growth_fade_to", 0.0, min(0.03, g1.base), max(0.06, g1.base), "default",
+    drivers["growth_fade_to"] = DriverSpec("growth_fade_to", min(0.0, g1.base), min(0.03, g1.base), max(0.06, g1.base), "default",
                                            "assumption: growth fades linearly to this by the last forecast year")
     add("ebit_margin", margin, (0.10, 0.20, 0.30), min_width=0.06, clip=(-0.2, 0.6))
     add("tax_rate", tax_rate, (0.20, 0.25, 0.30), min_width=0.04, clip=(0.0, 0.40))

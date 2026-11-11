@@ -75,3 +75,15 @@ basket (`backtest_basket`) and `price_check` (where the market price sat in the 
 - `price_check` is not a calibration of a DCF as a price forecaster. For companies with persistently negative free cash
   flow in the as-of history the belief distribution sits below any market price.
 - Net debt excludes operating leases; segment data are not in company facts, so builds come from a spec file.
+## Phase 29: any number of inputs (support-point polytope)
+
+The corner method needs 2**n model runs, which is fine to about 12 inputs. `belief_density` now switches
+automatically above `corner_limit` (default 12) to `nd_geometry.support.support_polytope`: for a few hundred
+directions in output space it maximises the direction's score over the input box by cached coordinate search
+(cost grows with n times directions, not 2**n). It is exact for models monotone in each input (the linear and
+DCF cases tested) and an inner approximation otherwise, so the polytope never claims outputs the model cannot
+make. `SupportResult.vertex_inputs` and `input_roles` say which input values build each vertex and whether an
+input is one-sided, a trade-off or interior. Tested to 60 inputs.
+
+Backtest on 22 companies (1,875 forecasts, filings-only beliefs): the 80% band holds 42% and the 50% band 26%.
+Widening the ranges about 3x brings the 80% band to 67%. Beliefs from filing history are over-confident.

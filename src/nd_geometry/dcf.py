@@ -63,6 +63,8 @@ def company_model(company: CompanyInputs, build: RevenueBuild | None = None, yea
     if build is None:
         g, f = company.drivers["revenue_growth"], company.drivers["growth_fade_to"]
         build = TopDownBuild(company.base_revenue, years, (g.low, g.base, g.high), (f.low, f.base, f.high))
+    if not company.shares == company.shares:  # NaN: the filings gave no share count
+        raise ValueError(f"{company.ticker}: no share count in the filings, so a per-share DCF cannot be built")
     inputs: tuple[Input, ...] = build.inputs() + company.inputs(FINANCIAL_DRIVERS)
     shares, net_debt = company.shares, company.net_debt
 

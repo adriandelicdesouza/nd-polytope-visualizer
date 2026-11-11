@@ -110,3 +110,18 @@ def test_parse_chart_gives_last_price_splits_and_lookup():
     assert hist.price_on(date(2021, 1, 1)) == 10.0 and hist.price_on(date(2019, 1, 1)) is None
     assert hist.split_factor_after(date(2020, 12, 1)) == 10.0
     assert hist.split_factor_after(date(2022, 1, 1)) == 1.0
+
+def test_negative_growth_history_still_gives_a_valid_fade_range():
+    co = company_from_facts(make_raw(growth=-0.04))
+    fade = co.drivers["growth_fade_to"]
+    assert fade.low <= fade.base <= fade.high and co.drivers["revenue_growth"].base < 0
+
+
+def test_missing_share_count_is_flagged_not_fatal():
+    raw = make_raw()
+    del raw["facts"]["dei"]["EntityCommonStockSharesOutstanding"]
+    del raw["facts"]["us-gaap"]["WeightedAverageNumberOfDilutedSharesOutstanding"]
+    co = company_from_facts(raw, ticker="NOSH")
+    assert co.shares != co.shares and any("NO SHARE COUNT" in n for n in co.notes)
+    with pytest.raises(ValueError, match="share count"):
+        company_model(co)

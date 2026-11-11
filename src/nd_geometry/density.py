@@ -16,6 +16,7 @@ from scipy.stats import gaussian_kde, triang, truncnorm
 
 from .analysis import evaluate_rows
 from .correlation import Correlation, copula_uniforms
+from .support import support_polytope
 from .model import Model
 from .output_polytope import OutputPolytope, output_polytope
 
@@ -136,12 +137,14 @@ def belief_density(
     seed: int = 0,
     corner_limit: int = 12,
     correlation: Correlation | None = None,
+    directions: int = 300,
 ) -> DensityResult:
     """Build the feasible polytope from the input box, then the density of beliefs over it.
 
     The polytope is the hull of the model at every corner of the box when the box has
-    at most `corner_limit` inputs (2**n corners), otherwise of the belief draws plus
-    the base case. Corner hulls are exact for models that are monotone in each input.
+    at most `corner_limit` inputs (2**n corners). Past that it is the hull of support points
+    (see support.py: `directions` directions, cost grows with the number of inputs, not 2**n)
+    together with the belief draws. Both are exact for models monotone in each input.
     """
     beliefs = beliefs or {}
     inputs = sample_beliefs(model, beliefs, draws, seed, correlation)
@@ -154,6 +157,6 @@ def belief_density(
         corners = np.where(picks, highs, lows)
         feasible_points = np.vstack([evaluate_rows(model, corners), outputs])
     else:
-        feasible_points = outputs
+        feasible_points = np.vstack([support_polytope(model, directions, seed).outputs, outputs])
     feasible = output_polytope(feasible_points, output_names=model.output_names)
     return DensityResult(model, beliefs, inputs, outputs, feasible, correlation)
