@@ -169,6 +169,15 @@ def main(argv=None) -> int:
     p.add_argument("--cache-dir", default=".cache")
     p.add_argument("--out", help="write an HTML report here")
     args = p.parse_args(argv)
+    if args.market_price is not None:
+        try:
+            live = fetch_prices(args.ticker, cache_dir=args.cache_dir).last_price
+        except Exception as error:  # no network or no price: say so and carry on
+            live = None
+            print(f"warning: could not fetch a live price to check --market-price ({error})")
+        if live and abs(args.market_price / live - 1) > 0.15:
+            print(f"WARNING: --market-price {args.market_price:,.2f} is {args.market_price / live - 1:+.0%} from the "
+                  f"live close {live:,.2f}. Check units (splits, currency) before trusting the reverse DCF.")
     overrides = {}
     for item in args.set:
         name, sep, values = item.partition("=")

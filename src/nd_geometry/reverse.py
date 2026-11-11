@@ -119,7 +119,8 @@ def reverse_dcf(result: DensityResult, market_price: float, output: str = "impli
     used = bandwidth
     while True:
         weights = np.exp(-0.5 * (rel / used) ** 2)
-        ess = float(weights.sum() ** 2 / np.sum(weights**2)) if weights.sum() > 0 else 0.0
+        sq = float(np.sum(weights**2))
+    ess = float(weights.sum() ** 2 / sq) if sq > 0 else 0.0
         if ess >= min_effective or used >= 0.5:
             break
         used *= 1.5

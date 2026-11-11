@@ -46,3 +46,15 @@ def test_command_line_with_a_segment_build(tmp_path, capsys):
     assert code == 0 and out.exists() and "core_volume" in shown and "new_growth" in shown
     with pytest.raises(SystemExit):
         main(["STDY", "--facts-file", str(facts), "--set", "wacc=oops", "--market-price", "25"])
+
+def test_market_price_far_from_live_price_is_flagged(monkeypatch, capsys, tmp_path):
+    import types
+
+    import nd_geometry.company as company_mod
+
+    facts = tmp_path / "facts.json"
+    facts.write_text(json.dumps(make_raw()))
+    monkeypatch.setattr(company_mod, "fetch_prices", lambda ticker, cache_dir: types.SimpleNamespace(last_price=50.0))
+    company_mod.main(["T", "--facts-file", str(facts), "--market-price", "1100", "--draws", "200", "--years", "2",
+                      "--no-backtest", "--correlation", "none", "--cache-dir", str(tmp_path)])
+    assert "WARNING: --market-price 1,100.00" in capsys.readouterr().out

@@ -113,3 +113,11 @@ Run (needs the options project at ~/options-pricing-model; pydantic and yfinance
 
     PYTHONPATH=src .venv/bin/python -m nd_geometry.option_combine NFLX --expiry 2027-01-15 \
       --facts-file /tmp/nflx_facts.json --wacc-build --per-year --years 5 --json /tmp/nflx_combo.json
+## Phase 32: fixes from the Netflix check
+
+- `--market-price` is checked against the live close; a difference over 15% prints a warning. The NFLX runs had used a
+  placeholder $1,100 against a $63.26 close, which made the reverse DCF meaningless.
+- Reverse DCF no longer divides by zero when no belief draw is near a price far outside the belief mass.
+- Base case vs belief median: for NFLX the base-case price ($47.87) sits well above the belief median ($33.31)
+  because the other-reinvestment range is 0% to 15% around a 0.9% base, so its belief mean is about 5.3%. That comes
+  from the inputs, not a bug.
