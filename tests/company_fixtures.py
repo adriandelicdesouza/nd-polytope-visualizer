@@ -18,9 +18,11 @@ def _instant(year: int, value: float, form: str = "10-K") -> dict:
 
 
 def make_raw(growth: float = 0.08, margin: float = 0.20, tax: float = 0.25, capex: float = 0.05,
-             da: float = 0.045, cfo_gap: float = 0.02, base: float = 1_000e6) -> dict:
-    """Facts for revenue growing at `growth`, with ratios exactly as given (so tests know the answers)."""
-    rev = {y: base * (1 + growth) ** (y - FIRST_YEAR) for y in range(FIRST_YEAR, LAST_YEAR + 1)}
+             da: float = 0.045, cfo_gap: float = 0.02, base: float = 1_000e6, growths: dict | None = None) -> dict:
+    """Facts for revenue growing at `growth` (or at `growths[year]` where given), with ratios exactly as given."""
+    rev = {FIRST_YEAR: base}
+    for y in range(FIRST_YEAR + 1, LAST_YEAR + 1):
+        rev[y] = rev[y - 1] * (1 + (growths or {}).get(y, growth))
     nopat = lambda y: rev[y] * margin * (1 - tax)
     tags = {
         "Revenues": [_flow(y, rev[y]) for y in rev],

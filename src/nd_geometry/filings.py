@@ -250,7 +250,7 @@ def _shares(facts: Facts, diluted: dict[date, Fact]) -> tuple[float, str]:
 
 def company_from_facts(raw: Mapping, *, ticker: str = "", cik: int = 0, as_of: date | None = None,
                        overrides: Mapping[str, tuple[float, float, float]] | None = None,
-                       range_width: float = 1.0, years_history: int = 8) -> CompanyInputs:
+                       range_width: float = 1.0, years_history: int = 8, base_years: int = 3) -> CompanyInputs:
     facts = Facts(raw, as_of)
     revenue = facts.annual(REVENUE)
     if len(revenue) < 3:
@@ -281,7 +281,7 @@ def company_from_facts(raw: Mapping, *, ticker: str = "", cik: int = 0, as_of: d
     def add(name, series, default, **range_args):
         recent = series[-RANGE_YEARS:]
         if len(recent) >= 2:
-            low, base, high = make_range([v for _, v in recent], widen=range_width, **range_args)
+            low, base, high = make_range([v for _, v in recent], widen=range_width, recent=base_years, **range_args)
             drivers[name] = DriverSpec(name, low, base, high, "filings", f"{len(recent)} fiscal years to {recent[-1][0].year}")
         else:
             drivers[name] = DriverSpec(name, *default, "default", "not enough filed history")
