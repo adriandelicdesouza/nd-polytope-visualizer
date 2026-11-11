@@ -50,8 +50,10 @@ def dcf_value(v: Mapping[str, float], revenues: Sequence[float], *, shares: floa
     return {
         "implied_price": (ev - net_debt) / shares,
         "enterprise_value": ev,
-        "tv_share": pv_tv / ev if ev > 0 else float("nan"),
-        "exit_multiple": tv / ebitda_n if ebitda_n > 0 else float("nan"),
+        # At extreme corners of a wide box the enterprise value can be zero or negative; the output polytope
+        # needs finite numbers, so the terminal-value share is 1 (all of the value is terminal) and the exit multiple 0.
+        "tv_share": pv_tv / ev if ev > 0 else 1.0,
+        "exit_multiple": tv / ebitda_n if ebitda_n > 0 else 0.0,
     }
 
 
