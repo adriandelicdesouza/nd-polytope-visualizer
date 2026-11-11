@@ -79,13 +79,22 @@ def dcf_value(v: Mapping[str, float], revenues: Sequence[float], *, shares: floa
     }
 
 
+def _ordered(triple: Sequence[float]) -> tuple[float, float, float]:
+    """(low, base, high) -> Input's (low, high, base) argument order, validated."""
+    low, base, high = (float(x) for x in triple)
+    if not low <= base <= high:
+        raise ValueError(f"override needs low <= base <= high, got {low}, {base}, {high}")
+    return low, high, base
+
+
 def company_model(company: CompanyInputs, build: RevenueBuild | None = None, years: int = 5,
-                  mid_year: bool = True, wacc_build: bool = False,
-                  per_year: bool = False) -> tuple[Model, RevenueBuild]:
+                  mid_year: bool = True, wacc_build: bool = False, per_year: bool = False,
+                  input_overrides: Mapping[str, Sequence[float]] | None = None) -> tuple[Model, RevenueBuild]:
     """A Model for one company: the revenue build's drivers first, then the financial drivers.
 
     wacc_build: replace the single WACC input with rf, equity beta, equity risk premium, cost of debt and debt weight.
     per_year: give margin, tax, capex, D&A, working capital and reinvestment one input per forecast year.
+    input_overrides: input name -> (low, base, high), applied to any final input (WACC parts, per-year, build).
     """
     if build is None:
         g, f = company.drivers["revenue_growth"], company.drivers["growth_fade_to"]
@@ -101,6 +110,13 @@ def company_model(company: CompanyInputs, build: RevenueBuild | None = None, yea
     else:
         financial = company.inputs(names)
     inputs: tuple[Input, ...] = build.inputs() + financial + (WACC_PARTS if wacc_build else ())
+    if input_overrides:
+        known = {i.name for i in inputs}
+        unknown = sorted(set(input_overrides) - known)
+        if unknown:
+            raise ValueError(f"unknown inputs in overrides: {unknown}; available: {sorted(known)}")
+        inputs = tuple(Input(i.name, i.unit, *_ordered(input_overrides[i.name])) if i.name in input_overrides else i
+                       for i in inputs)
     shares, net_debt = company.shares, company.net_debt
 
     def function(v: dict[str, float]) -> dict[str, float]:

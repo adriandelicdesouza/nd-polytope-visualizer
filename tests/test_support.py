@@ -125,3 +125,18 @@ def test_cheapest_story_spreads_the_move_across_inputs_and_flags_unreachable():
     assert abs(st.cost - 9.0 / np.sum((1.5 * w[0]) ** 2)) < 1e-4  # closed-form minimum-norm move
     far = cheapest_story(model, "a", base_a + 1e6)
     assert not far.reachable and "outside" in far.lines()[0]
+
+
+def test_input_overrides_reach_wacc_parts_and_per_year_inputs():
+    import pytest
+
+    co = company_from_facts(make_raw(), ticker="T")
+    model, _ = company_model(co, years=5, wacc_build=True, per_year=True,
+                             input_overrides={"rf": (0.02, 0.03, 0.04), "ebit_margin_y2": (0.1, 0.2, 0.3)})
+    by = {i.name: i for i in model.inputs}
+    assert (by["rf"].low, by["rf"].base, by["rf"].high) == (0.02, 0.03, 0.04)
+    assert by["ebit_margin_y2"].high == 0.3 and by["ebit_margin_y3"].base != 0.2
+    with pytest.raises(ValueError, match="unknown inputs"):
+        company_model(co, input_overrides={"nope": (0, 1, 2)})
+    with pytest.raises(ValueError, match="low <= base <= high"):
+        company_model(co, input_overrides={"wacc": (0.1, 0.05, 0.12)})

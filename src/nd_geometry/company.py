@@ -64,7 +64,7 @@ class CompanyAnalysis:
         return out
 
 
-def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overrides=None, years: int = 10, wacc_build: bool = False, per_year: bool = False, range_width: float = 1.0,
+def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overrides=None, years: int = 10, wacc_build: bool = False, per_year: bool = False, range_width: float = 1.0, input_overrides=None,
                     draws: int = 20_000, seed: int = 0, correlation: str = "prior", backtest: bool = True,
                     fetch: Fetch = http_get, cache_dir=".cache", market_price: float | None = None,
                     raw: dict | None = None, prices: PriceHistory | None = None) -> CompanyAnalysis:
@@ -80,7 +80,8 @@ def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overr
         market_price, source = prices.last_price, f"Yahoo Finance close {prices.last_date}"
     else:
         source = "supplied"
-    model, build = company_model(company, build, years, wacc_build=wacc_build, per_year=per_year)
+    model, build = company_model(company, build, years, wacc_build=wacc_build, per_year=per_year,
+                                 input_overrides=input_overrides)
     names = model.input_names
     if correlation == "none":
         corr = None
