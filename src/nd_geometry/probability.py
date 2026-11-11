@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from scipy.stats import norm
 
 from .analysis import evaluate_rows
 from .model import Model
@@ -53,17 +54,53 @@ class MonteCarloResult:
         }
 
 
+def _sample_occurrence(
+    rng: np.random.Generator,
+    events: tuple[RiskEvent, ...],
+    draws: int,
+    correlation: np.ndarray | None,
+) -> np.ndarray:
+    """Return an (draws, events) boolean array of which events occurred.
+
+    Without a correlation matrix, events are independent. With one, a Gaussian
+    copula links them: latent normals with that correlation are thresholded at
+    each event's probability, so every marginal probability is preserved exactly.
+    """
+    count = len(events)
+    if count == 0:
+        return np.zeros((draws, 0), dtype=bool)
+    if correlation is None:
+        return np.column_stack([rng.uniform(size=draws) < event.probability for event in events])
+
+    matrix = np.asarray(correlation, dtype=float)
+    if matrix.shape != (count, count):
+        raise ValueError("correlation must be a k x k matrix, where k is the number of events")
+    if not np.allclose(matrix, matrix.T) or not np.allclose(np.diag(matrix), 1.0):
+        raise ValueError("correlation must be symmetric with ones on the diagonal")
+    eigenvalues, eigenvectors = np.linalg.eigh(matrix)
+    if eigenvalues.min() < -1e-10:
+        raise ValueError("correlation must be positive semi-definite")
+
+    loadings = eigenvectors * np.sqrt(np.clip(eigenvalues, 0.0, None))
+    latent = rng.standard_normal((draws, count)) @ loadings.T
+    thresholds = norm.ppf(np.array([event.probability for event in events]))
+    return latent < thresholds
+
+
 def monte_carlo(
     model: Model,
     events: tuple[RiskEvent, ...] = (),
     draws: int = 10_000,
     seed: int = 0,
     fixed: dict[str, float] | None = None,
+    correlation: np.ndarray | None = None,
 ) -> MonteCarloResult:
     """Sample market inputs uniformly and risk events independently, then evaluate the model.
 
-    Events are treated as independent: the chance that two occur together is the
-    product of their probabilities. `fixed` pins inputs to a value for every draw.
+    By default events are independent, so two occurring together has probability
+    equal to the product of their probabilities. Pass `correlation` (a k x k matrix
+    for k events) to make them dependent; marginal probabilities are unchanged.
+    `fixed` pins inputs to a value for every draw.
     """
     names = model.input_names
     event_inputs = [event.input_name for event in events]
@@ -88,10 +125,9 @@ def monte_carlo(
     highs = np.array([item.high for item in model.inputs])
     inputs = lows + rng.uniform(size=(draws, len(names))) * (highs - lows)
 
-    occurred = np.zeros((draws, len(events)), dtype=bool)
+    occurred = _sample_occurrence(rng, events, draws, correlation)
     for index, event in enumerate(events):
         column = names.index(event.input_name)
-        occurred[:, index] = rng.uniform(size=draws) < event.probability
         severity = event.low + rng.uniform(size=draws) * (event.high - event.low)
         inputs[:, column] = np.where(occurred[:, index], severity, event.quiet)
 
@@ -109,6 +145,18 @@ def monte_carlo(
     )
 
 
+def _drop_event_correlation(
+    correlation: np.ndarray | None,
+    events: tuple[RiskEvent, ...],
+    vary_input: str,
+) -> np.ndarray | None:
+    """Return the correlation matrix restricted to the events that remain after `vary_input`."""
+    if correlation is None:
+        return None
+    keep = [index for index, event in enumerate(events) if event.input_name != vary_input]
+    return np.asarray(correlation, dtype=float)[np.ix_(keep, keep)]
+
+
 def quantile_profile(
     model: Model,
     events: tuple[RiskEvent, ...],
@@ -118,6 +166,7 @@ def quantile_profile(
     draws: int = 4000,
     seed: int = 0,
     quantiles: tuple[float, ...] = (0.1, 0.5, 0.9),
+    correlation: np.ndarray | None = None,
 ) -> dict[str, list[float]]:
     """Trace output quantiles as one input is fixed at each of `points` values.
 
@@ -132,7 +181,14 @@ def quantile_profile(
         profile[f"p{round(q * 100)}"] = []
 
     for value in values:
-        result = monte_carlo(model, events, draws=draws, seed=seed, fixed={vary_input: float(value)})
+        result = monte_carlo(
+            model,
+            events,
+            draws=draws,
+            seed=seed,
+            fixed={vary_input: float(value)},
+            correlation=_drop_event_correlation(correlation, events, vary_input),
+        )
         for q in quantiles:
             profile[f"p{round(q * 100)}"].append(result.quantiles(output, (q,))[q])
     return profile

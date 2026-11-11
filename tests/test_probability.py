@@ -95,3 +95,58 @@ def test_delays_raise_transit_time_in_the_profile():
 
     assert profile["p50"][-1] > profile["p50"][0]
     assert len(profile["value"]) == 3
+
+
+def test_positive_correlation_raises_joint_occurrence_and_keeps_marginals():
+    model = _toy()
+    events = (RiskEvent("a", 0.3, 0.0, 1.0), RiskEvent("b", 0.3, 1.0, 2.0))
+    independent = monte_carlo(model, events, draws=60000, seed=11)
+    correlated = monte_carlo(model, events, draws=60000, seed=11, correlation=np.array([[1.0, 0.7], [0.7, 1.0]]))
+
+    joint_independent = (independent.occurred[:, 0] & independent.occurred[:, 1]).mean()
+    joint_correlated = (correlated.occurred[:, 0] & correlated.occurred[:, 1]).mean()
+
+    assert joint_independent == pytest.approx(0.09, abs=0.01)
+    assert joint_correlated > 0.15
+    assert correlated.event_frequencies()["a"] == pytest.approx(0.3, abs=0.01)
+    assert correlated.event_frequencies()["b"] == pytest.approx(0.3, abs=0.01)
+
+
+def test_identity_correlation_matches_independent_sampling_in_distribution():
+    model = _toy()
+    events = (RiskEvent("a", 0.4, 0.0, 1.0), RiskEvent("b", 0.2, 1.0, 2.0))
+    result = monte_carlo(model, events, draws=40000, seed=5, correlation=np.eye(2))
+
+    joint = (result.occurred[:, 0] & result.occurred[:, 1]).mean()
+    assert joint == pytest.approx(0.08, abs=0.01)
+
+
+def test_negative_correlation_lowers_joint_occurrence():
+    model = _toy()
+    events = (RiskEvent("a", 0.5, 0.0, 1.0), RiskEvent("b", 0.5, 1.0, 2.0))
+    result = monte_carlo(model, events, draws=40000, seed=8, correlation=np.array([[1.0, -0.8], [-0.8, 1.0]]))
+
+    # Gaussian copula at the median thresholds: P(both) = 1/4 + arcsin(rho) / (2 pi).
+    expected = 0.25 + np.arcsin(-0.8) / (2 * np.pi)
+    joint = (result.occurred[:, 0] & result.occurred[:, 1]).mean()
+    assert joint == pytest.approx(expected, abs=0.01)
+
+
+def test_invalid_correlation_matrices_are_rejected():
+    model = _toy()
+    events = (RiskEvent("a", 0.3, 0.0, 1.0), RiskEvent("b", 0.3, 1.0, 2.0))
+    with pytest.raises(ValueError, match="k x k"):
+        monte_carlo(model, events, correlation=np.eye(3))
+    with pytest.raises(ValueError, match="ones on the diagonal"):
+        monte_carlo(model, events, correlation=np.array([[2.0, 0.0], [0.0, 1.0]]))
+    with pytest.raises(ValueError, match="positive semi-definite"):
+        monte_carlo(model, events, correlation=np.array([[1.0, 1.5], [1.5, 1.0]]))
+
+
+def test_validated_freight_assumptions_are_in_the_model():
+    base = MODEL.evaluate(MODEL.base_case())
+
+    # 800 km at 80 km/h with 13 driving hours per day is 0.77 days.
+    assert base["transit_days"] == pytest.approx(800 / (80 * 13.0))
+    assert base["cost_per_tonne"] > 0
+    assert MODEL.input_names.count("fuel_consumption") == 1
