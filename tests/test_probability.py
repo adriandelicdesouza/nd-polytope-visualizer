@@ -146,12 +146,21 @@ def test_invalid_correlation_matrices_are_rejected():
 def test_sea_freight_base_case_matches_hand_calculation():
     base = MODEL.evaluate(MODEL.base_case())
 
-    # 10,600 nm at 20 knots is 22.08 sea days. Burn is 225 * (20/24)^3 = 130.2 t/day at 745.3 USD/t VLSFO.
+    # 10,600 nm at 20 knots is 22.08 sea days. Fuel 225 * (20/24)^3 t/day at 745.3 USD/t VLSFO.
+    # Canal 500,000. Port fees: 2 calls x (40,000 + 0.50 x 90,000 GT). Carried: 8,000 x 0.85 TEU.
     sea_days = 10600 / (20 * 24)
     fuel = 225 * (20 / 24) ** 3 * sea_days * (90 * 7.53 * 1.10)
     charter = 50000 * sea_days
+    ports = 2 * (40000 + 0.50 * 90000)
     assert base["transit_days"] == pytest.approx(sea_days)
-    assert base["cost_per_teu"] == pytest.approx((fuel + charter) / (8000 * 0.85))
+    assert base["cost_per_teu"] == pytest.approx((fuel + charter + 500000 + ports) / (8000 * 0.85))
+
+
+def test_port_fees_and_canal_toll_are_added_per_teu():
+    base = MODEL.base_case()
+    no_fees = MODEL.evaluate({**base, "canal_toll_usd": 0.0, "port_fixed_fee_usd": 20000.0, "port_dues_usd_per_gt": 0.25})
+    with_fees = MODEL.evaluate(base)
+    assert with_fees["cost_per_teu"] > no_fees["cost_per_teu"]
 
 
 def test_sea_freight_rises_with_crude_and_falls_with_speed():

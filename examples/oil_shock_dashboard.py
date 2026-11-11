@@ -82,7 +82,7 @@ def build_payload() -> dict:
         "notes": [
             "Pump prices are steady state and ex-tax. The path uses one weekly adjustment speed (since 2015), "
             "not the full short-run dynamics, so early weeks are understated.",
-            "Sea cost is fuel plus time-charter hire per TEU carried. Canal tolls and port charges are excluded.",
+            "Sea cost is fuel, time-charter hire, Suez toll and port fees per TEU carried. The toll and port fees are flagged placeholders. Terminal handling is excluded.",
             f"Port delay occurs in {freq['port_delay_days']:.1%} of risk draws; fuel shock in {freq['fuel_shock']:.1%}. "
             "The fuel-shock share comes from Brent history since 2015, including the 2020 and 2022 spikes.",
         ],

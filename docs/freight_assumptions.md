@@ -2,7 +2,7 @@
 
 Model: examples/sea_freight_model.py. One 8,000 TEU container ship, Shanghai to Rotterdam. Output is cost per TEU carried (fuel plus time-charter hire) and transit days. Money is USD.
 
-Not included: canal tolls, port and terminal charges, cargo handling, overhead, and fuel burned while idle in port.
+Included: fuel, time-charter hire, Suez canal toll, and port fees. Not included: terminal handling, cargo handling, overhead, and fuel burned while idle in port.
 
 ## Assumptions
 
@@ -33,10 +33,22 @@ Not included: canal tolls, port and terminal charges, cargo handling, overhead, 
 - The fuel-shock frequency comes from the Brent history, so it reflects volatility over 2015 to 2026. Check it against a shorter window before using it.
 - The correlation of 0.5 between port delays and fuel shocks is illustrative. No source yet.
 - Charter hire, the VLSFO premium and the load factor are judgments drawn from the sources above, not quoted figures for this exact ship.
-- The model excludes canal tolls and port charges. These are large relative to the per-TEU result, so the output is a lower bound on the cost to ship a TEU.
+- The Suez toll and port fees are flagged placeholders. Replace them with the vessel's SCA toll and the port tariffs before use.
 
 ## What the rebuild changed
 
 - The earlier model was for road freight: trucks, kilometres, driving hours and ATRI truck costs. It was replaced with a sea-freight model.
 - Fuel is now VLSFO priced from Brent, not diesel. The fuel-shock history follows Brent, not US retail diesel.
 - Delay cost is now time-charter hire on the ship, not truck and driver cost.
+
+## Port and canal fees (added)
+
+| Assumption | Value used | Range | Source | Flag |
+|---|---|---|---|---|
+| Suez canal toll per transit | 500,000 USD | 0 to 800,000 | Sea-routes calculator: Suez fee of 400,000 to 600,000 USD for large container ships (https://everycalculators.com/sea-routes-calculator.html) | Placeholder. Low-quality source. The toll depends on the vessel's SCNT, and no reliable headline figure was found (https://carraglobe.com/suez-vs-cape-of-good-hope-transit-times/). Set to 0 for the Cape route. |
+| Suez surcharge | 12% on transit dues | not modelled | Suez Canal Authority surcharge (https://www.iss-shipping.com/sca-introduces-revised-toll-surcharges/) | Effective date conflicts across sources. Not modelled separately; the toll input is the all-in placeholder. |
+| 15% container rebate | not modelled | n/a | Sources conflict: one reports it withdrawn from 7 April 2026 (https://dredgewire.com/suez-canal-scraps-15-container-rebate-as-hormuz-crisis-drains-traffic-and-reshapes-global-shipping-routes); another reports it in force in February 2026 (https://businessmonthlyeg.com/15-toll-cut-lures-mega-ships-back-to-the-suez-canal/) | Unresolved. |
+| Port fixed fee per call | 40,000 USD | 20,000 to 80,000 | Dockage 5,000 to 20,000, pilotage 2,000 to 10,000, tug 1,000 to 5,000, admin 1,000 to 3,000 (https://everycalculators.com/shipping-routes-calculator.html), summed to about 38,000 at the top of ranges | Estimate. The calculator ranges are low-quality. Rotterdam and Shanghai tariffs were not retrieved. |
+| Port dues per GT | 0.50 USD/GT per call | 0.25 to 1.00 | Port dues of 0.50 to 10 USD per GT (Mammadov 2023, quoted at https://medium.com/shipping-intel/voyage-cost-port-charges-55a0a5db3eed) | Range is wide. The base is the low end. |
+| Gross tonnage | 90,000 GT | fixed | Assumption | Not sourced. Scales the port dues. |
+| Port calls per voyage | 2 | fixed | Origin and destination | |
