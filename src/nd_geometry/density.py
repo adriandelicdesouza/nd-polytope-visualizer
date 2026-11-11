@@ -12,9 +12,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.stats import gaussian_kde, truncnorm
+from scipy.stats import gaussian_kde, triang, truncnorm
 
 from .analysis import evaluate_rows
+from .correlation import Correlation, copula_uniforms
 from .model import Model
 from .output_polytope import OutputPolytope, output_polytope
 
@@ -37,12 +38,31 @@ class Belief:
             raise ValueError("spread must be positive")
 
 
-def sample_beliefs(model: Model, beliefs: dict[str, Belief], draws: int, seed: int = 0) -> np.ndarray:
-    """Draw inputs from each input's belief (default triangular on its base case)."""
+def _inverse_cdf(item, belief: Belief, u: np.ndarray) -> np.ndarray:
+    u = np.clip(u, 1e-12, 1 - 1e-12)
+    width = item.high - item.low
+    if belief.kind == "uniform":
+        return item.low + u * width
+    if belief.kind == "triangular":
+        return triang.ppf(u, (item.base - item.low) / width, loc=item.low, scale=width)
+    sd = belief.spread * width
+    return truncnorm.ppf(u, (item.low - item.base) / sd, (item.high - item.base) / sd, loc=item.base, scale=sd)
+
+
+def sample_beliefs(model: Model, beliefs: dict[str, Belief], draws: int, seed: int = 0,
+                   correlation: Correlation | None = None) -> np.ndarray:
+    """Draw inputs from each input's belief (default triangular on its base case).
+
+    With `correlation`, the drivers move together through a Gaussian copula and every marginal belief is kept.
+    """
     unknown = set(beliefs) - set(model.input_names)
     if unknown:
         raise ValueError(f"beliefs for unknown inputs: {sorted(unknown)}")
     rng = np.random.default_rng(seed)
+    if correlation is not None:
+        u = copula_uniforms(correlation.aligned(model.input_names), draws, rng)
+        return np.column_stack([_inverse_cdf(item, beliefs.get(item.name, Belief()), u[:, j])
+                                for j, item in enumerate(model.inputs)])
     columns = []
     for item in model.inputs:
         belief = beliefs.get(item.name, Belief())
@@ -67,6 +87,7 @@ class DensityResult:
     inputs: np.ndarray
     outputs: np.ndarray
     feasible: OutputPolytope
+    correlation: Correlation | None = None
 
     def column(self, output: str) -> np.ndarray:
         return self.outputs[:, self.model.output_names.index(output)]
@@ -114,6 +135,7 @@ def belief_density(
     draws: int = 20_000,
     seed: int = 0,
     corner_limit: int = 12,
+    correlation: Correlation | None = None,
 ) -> DensityResult:
     """Build the feasible polytope from the input box, then the density of beliefs over it.
 
@@ -122,7 +144,7 @@ def belief_density(
     the base case. Corner hulls are exact for models that are monotone in each input.
     """
     beliefs = beliefs or {}
-    inputs = sample_beliefs(model, beliefs, draws, seed)
+    inputs = sample_beliefs(model, beliefs, draws, seed, correlation)
     outputs = evaluate_rows(model, inputs)
     n = len(model.inputs)
     if n <= corner_limit:
@@ -134,4 +156,4 @@ def belief_density(
     else:
         feasible_points = outputs
     feasible = output_polytope(feasible_points, output_names=model.output_names)
-    return DensityResult(model, beliefs, inputs, outputs, feasible)
+    return DensityResult(model, beliefs, inputs, outputs, feasible, correlation)
