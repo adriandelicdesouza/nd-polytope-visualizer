@@ -22,12 +22,36 @@ class RiskEvent:
     low: float
     high: float
     quiet: float = 0.0
+    severities: tuple[float, ...] | None = None
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.probability <= 1.0:
             raise ValueError("probability must be between 0 and 1")
         if not self.low <= self.high:
             raise ValueError("event low must be <= high")
+        if self.severities is not None:
+            if not self.severities:
+                raise ValueError("severities must not be empty")
+            if not all(self.low <= value <= self.high for value in self.severities):
+                raise ValueError("every historical severity must lie within [low, high]")
+
+    @classmethod
+    def from_history(
+        cls,
+        input_name: str,
+        probability: float,
+        severities: tuple[float, ...],
+        quiet: float = 0.0,
+    ) -> "RiskEvent":
+        """Build an event whose severity is resampled from observed sizes."""
+        return cls(
+            input_name=input_name,
+            probability=probability,
+            low=min(severities),
+            high=max(severities),
+            quiet=quiet,
+            severities=tuple(severities),
+        )
 
 
 @dataclass(frozen=True)
@@ -128,7 +152,10 @@ def monte_carlo(
     occurred = _sample_occurrence(rng, events, draws, correlation)
     for index, event in enumerate(events):
         column = names.index(event.input_name)
-        severity = event.low + rng.uniform(size=draws) * (event.high - event.low)
+        if event.severities is not None:
+            severity = rng.choice(np.asarray(event.severities), size=draws)
+        else:
+            severity = event.low + rng.uniform(size=draws) * (event.high - event.low)
         inputs[:, column] = np.where(occurred[:, index], severity, event.quiet)
 
     for name, value in (fixed or {}).items():

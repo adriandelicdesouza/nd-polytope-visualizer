@@ -87,7 +87,7 @@ def test_freight_oil_model_runs_with_risk_events():
 
     assert result.outputs.shape == (2000, 2)
     assert stats[0.5] > 0
-    assert result.event_frequencies()["port_delay_days"] == pytest.approx(0.25, abs=0.03)
+    assert result.event_frequencies()["port_delay_days"] == pytest.approx(44 / 1827, abs=0.005)
 
 
 def test_delays_raise_transit_time_in_the_profile():
@@ -150,3 +150,42 @@ def test_validated_freight_assumptions_are_in_the_model():
     assert base["transit_days"] == pytest.approx(800 / (80 * 13.0))
     assert base["cost_per_tonne"] > 0
     assert MODEL.input_names.count("fuel_consumption") == 1
+
+
+def test_historical_severities_are_resampled_and_bounded():
+    from nd_geometry.probability import RiskEvent as Ev
+
+    event = Ev.from_history("b", probability=1.0, severities=(2.0, 4.0))
+    result = monte_carlo(_toy(), (event,), draws=500, seed=6)
+
+    assert set(np.unique(result.inputs[:, 1])) <= {2.0, 4.0}
+    assert event.low == 2.0 and event.high == 4.0
+
+
+def test_history_severity_outside_input_range_is_rejected():
+    with pytest.raises(ValueError, match="within"):
+        RiskEvent("b", probability=0.5, low=0.0, high=1.0, severities=(0.5, 3.0))
+
+
+def test_price_shock_history_counts_rises_at_or_above_threshold(tmp_path):
+    from nd_geometry.history import price_shock_history
+
+    csv_path = tmp_path / "p.csv"
+    csv_path.write_text("observation_date,P\n2020-01-01,100\n2020-01-08,100\n2020-01-15,100\n2020-01-22,100\n2020-01-29,110\n2020-02-05,110\n")
+    history = price_shock_history(csv_path, "P", since="2020-01-01", lag=4, threshold=0.05)
+
+    assert history.observations == 2
+    assert history.probability == pytest.approx(1.0)
+    assert history.severities == (0.1, 0.1)
+
+
+def test_fuel_shock_history_matches_recorded_estimate():
+    from nd_geometry.history import price_shock_history
+
+    history = price_shock_history(
+        pathlib.Path(__file__).resolve().parents[1] / "data" / "us_diesel_retail_weekly_fred_GASDESW.csv",
+        "GASDESW",
+        since="2015-01-01",
+    )
+    assert history.probability == pytest.approx(0.1333, abs=0.0005)
+    assert len(history.severities) == 82

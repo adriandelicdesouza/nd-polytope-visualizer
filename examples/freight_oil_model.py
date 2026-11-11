@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from pathlib import Path
+
+from nd_geometry.history import price_shock_history
 from nd_geometry.model import Input, Model, Output
 from nd_geometry.probability import RiskEvent
 
@@ -36,16 +39,24 @@ MODEL = Model(
         Input("load_factor", "%", 0.60, 1.00, 0.85),
         Input("average_speed_kmh", "km/h", 70.0, 95.0, 80.0),
         Input("port_delay_days", "days", 0.0, 15.0, 0.0),
-        Input("fuel_shock", "%", 0.0, 0.30, 0.0),
+        Input("fuel_shock", "%", 0.0, 0.45, 0.0),
     ),
     outputs=(Output("cost_per_tonne", "USD"), Output("transit_days", "days")),
     function=freight_oil,
 )
 
-# Illustrative probabilities only: replace with your own risk assessment.
+DATA = Path(__file__).resolve().parents[1] / "data"
+
+# Fuel shock: diesel up 5% or more over 4 weeks, from US weekly retail diesel (FRED GASDESW, EIA data) since 2015.
+_FUEL = price_shock_history(DATA / "us_diesel_retail_weekly_fred_GASDESW.csv", "GASDESW", since="2015-01-01")
+
+# Port delay: days lost to North American gateway strikes and lockouts, 2020-2024 (see docs/freight_assumptions.md).
+# Probability is disrupted days / days in the period: 44 / 1827.
+_PORT_DISRUPTION_DAYS = (12.0, 5.0, 13.0, 3.0, 3.0, 8.0)
+
 EVENTS = (
-    RiskEvent("port_delay_days", probability=0.25, low=1.0, high=10.0),
-    RiskEvent("fuel_shock", probability=0.15, low=0.05, high=0.30),
+    RiskEvent.from_history("port_delay_days", probability=44 / 1827, severities=_PORT_DISRUPTION_DAYS),
+    RiskEvent.from_history("fuel_shock", probability=_FUEL.probability, severities=_FUEL.severities),
 )
 
 # Port delays and fuel shocks often share a cause (e.g. a supply disruption). Illustrative 0.5.
