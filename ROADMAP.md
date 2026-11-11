@@ -9,16 +9,15 @@
 
 ## Done (recent)
 
-- Model template, analysis runner, boundary refinement, explanations, views, regression baseline (see earlier entries).
-- Probability layer (`probability.py`): risk events with probabilities and severity ranges, Monte Carlo draws with a fixed seed, joint outcome distributions, quantiles, and quantile profiles across an input.
-- Oil-linked road freight model (`examples/freight_oil_model.py`): Brent price plus diesel crack, vessel capacity, load, distance, speed, port delays and fuel shocks.
-- Interactive dashboard (`dashboard.py`): self-contained HTML in the terminal's palette; choose any two variables for a joint density, filter inputs, filter by event, and trace quantiles across an input.
+- Freight assumptions checked against sources (`docs/freight_assumptions.md`). This roughly doubled the base-case cost per tonne, because non-fuel cost was about 2.5 times too low, and set driving hours to the legal 13 h.
+- Correlated risk events (`monte_carlo(..., correlation=...)`): Gaussian copula, marginal probabilities preserved, validated against the closed form for two events.
+- Probability dashboard and oil-linked freight model (see earlier entries).
 
 ## Next
 
-1. Validate the cost assumptions (delay cost per day, driving hours, fuel use) against sourced data before the pitch; the probabilities are placeholders.
-2. Correlated risks: events are currently independent. Add a dependence structure (e.g. a shared shock) when the risks are linked in practice.
-3. Analytic check: compare Monte Carlo quantiles with a closed-form result for a simple case.
-4. Slice navigation and sharing: fixed views for the pitch, and a way to rerun the dashboard from a saved model.
+1. Source the event probabilities and severity ranges (port delay days, fuel shock size) before the pitch. They are still placeholders.
+2. Validate Canadian operating costs and wages; the sourced figures are US (ATRI).
+3. Oil shipping to regional prices (Europe and North America): link tanker or freight costs, regional crack spreads and pump-price pass-through, so a crude move can be priced before it reaches the pump. This needs regional data sources and a pass-through model.
+4. Analytic check of Monte Carlo quantiles for a simple case.
 5. Input constraints (e.g. portfolio weights) when a portfolio model is added.
 6. Extend the 4D facet-cell work to 5D+ only if a real example needs it.

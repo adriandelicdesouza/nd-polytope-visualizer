@@ -103,14 +103,14 @@ Baseline check against itself: {'ok': True, 'changes': []}
 ## freight_oil_report.py
 
 ```text
-Event frequencies: {'port_delay_days': 0.253, 'fuel_shock': 0.15}
-cost_per_tonne: P10 15.85, P50 42.03, P90 297.18
-transit_days: P10 0.55, P50 1.34, P90 7.58
+Event frequencies: {'port_delay_days': 0.251, 'fuel_shock': 0.153}
+cost_per_tonne: P10 32.11, P50 83.98, P90 312.49
+transit_days: P10 0.42, P50 1.03, P90 7.36
 cost_per_tonne by Brent price ($/bbl):
-    50.0: P10 14.08, P50 37.33, P90 294.08
-    67.5: P10 14.97, P50 39.66, P90 297.26
-    85.0: P10 15.83, P50 41.90, P90 298.55
-   102.5: P10 16.71, P50 44.22, P90 300.55
-   120.0: P10 17.59, P50 46.53, P90 302.60
+    50.0: P10 32.70, P50 80.28, P90 296.41
+    67.5: P10 33.62, P50 82.73, P90 298.83
+    85.0: P10 34.59, P50 85.00, P90 300.92
+   102.5: P10 35.49, P50 86.96, P90 303.72
+   120.0: P10 36.38, P50 89.10, P90 307.08
 Dashboard written.
 ```
