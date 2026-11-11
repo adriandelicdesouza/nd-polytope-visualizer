@@ -69,3 +69,19 @@ Polytope vertices: 16
 Polytope area: 50.8689
 Base case inside: True
 ```
+
+## dcf_model.py
+
+```text
+enterprise_value: 71.72 to 522.45
+terminal_share: 0.60 to 0.81
+Base case inside envelope: True
+```
+
+## freight_model.py
+
+```text
+cost_per_tonne: 14.10 to 143.75
+transit_days: 0.32 to 2.14
+Base case inside envelope: True
+```
