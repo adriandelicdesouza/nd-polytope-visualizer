@@ -9,7 +9,7 @@ from nd_geometry.probability import RiskEvent as Event
 
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "examples"))
-from freight_oil_model import EVENTS, MODEL  # noqa: E402
+from sea_freight_model import EVENTS, MODEL  # noqa: E402
 
 
 def _toy():
@@ -81,9 +81,9 @@ def test_quantiles_are_ordered():
     assert q[0.1] <= q[0.5] <= q[0.9]
 
 
-def test_freight_oil_model_runs_with_risk_events():
+def test_sea_freight_model_runs_with_risk_events():
     result = monte_carlo(MODEL, EVENTS, draws=2000, seed=1)
-    stats = result.quantiles("cost_per_tonne")
+    stats = result.quantiles("cost_per_teu")
 
     assert result.outputs.shape == (2000, 2)
     assert stats[0.5] > 0
@@ -143,13 +143,21 @@ def test_invalid_correlation_matrices_are_rejected():
         monte_carlo(model, events, correlation=np.array([[1.0, 1.5], [1.5, 1.0]]))
 
 
-def test_validated_freight_assumptions_are_in_the_model():
+def test_sea_freight_base_case_matches_hand_calculation():
     base = MODEL.evaluate(MODEL.base_case())
 
-    # 800 km at 80 km/h with 13 driving hours per day is 0.77 days.
-    assert base["transit_days"] == pytest.approx(800 / (80 * 13.0))
-    assert base["cost_per_tonne"] > 0
-    assert MODEL.input_names.count("fuel_consumption") == 1
+    # 10,600 nm at 20 knots is 22.08 sea days. Burn is 225 * (20/24)^3 = 130.2 t/day at 745.3 USD/t VLSFO.
+    sea_days = 10600 / (20 * 24)
+    fuel = 225 * (20 / 24) ** 3 * sea_days * (90 * 7.53 * 1.10)
+    charter = 50000 * sea_days
+    assert base["transit_days"] == pytest.approx(sea_days)
+    assert base["cost_per_teu"] == pytest.approx((fuel + charter) / (8000 * 0.85))
+
+
+def test_sea_freight_rises_with_crude_and_falls_with_speed():
+    base = MODEL.base_case()
+    assert MODEL.evaluate({**base, "brent_price": 110.0})["cost_per_teu"] > MODEL.evaluate(base)["cost_per_teu"]
+    assert MODEL.evaluate({**base, "ship_speed_knots": 16.0})["transit_days"] > MODEL.evaluate(base)["transit_days"]
 
 
 def test_historical_severities_are_resampled_and_bounded():

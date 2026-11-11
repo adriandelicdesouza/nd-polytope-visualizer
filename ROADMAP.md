@@ -9,7 +9,7 @@
 
 ## Done (recent)
 
-- Freight assumptions checked against sources (`docs/freight_assumptions.md`). This roughly doubled the base-case cost per tonne, because non-fuel cost was about 2.5 times too low, and set driving hours to the legal 13 h.
+- (Superseded) Road freight assumptions checked against sources (`docs/freight_assumptions.md`). This roughly doubled the base-case cost per tonne, because non-fuel cost was about 2.5 times too low, and set driving hours to the legal 13 h.
 - Correlated risk events (`monte_carlo(..., correlation=...)`): Gaussian copula, marginal probabilities preserved, validated against the closed form for two events.
 - Probability dashboard and oil-linked freight model (see earlier entries).
 
@@ -23,3 +23,4 @@
 6. Extend the 4D facet-cell work to 5D+ only if a real example needs it.
 - Done: regional diesel pass-through model (error-correction, sourced; docs/regional_pass_through.md).
 - Done: DCF design review across projects (docs/dcf_design_review.md); single-company dcf_v2 model; DCF fixes applied to dcf-core and bloomberg-terminal.
+- Done: freight model rebuilt for sea shipping (8,000 TEU container ship, Shanghai to Rotterdam; examples/sea_freight_model.py; docs/freight_assumptions.md).

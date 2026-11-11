@@ -6,7 +6,7 @@ import pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "examples"))
 
-from freight_oil_model import EVENTS, MODEL  # noqa: E402
+from sea_freight_model import EVENTS, MODEL  # noqa: E402
 
 from nd_geometry.dashboard import dashboard_payload, write_dashboard  # noqa: E402
 from nd_geometry.probability import monte_carlo  # noqa: E402
