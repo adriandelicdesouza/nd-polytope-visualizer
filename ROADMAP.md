@@ -21,3 +21,4 @@
 4. Analytic check of Monte Carlo quantiles for a simple case.
 5. Input constraints (e.g. portfolio weights) when a portfolio model is added.
 6. Extend the 4D facet-cell work to 5D+ only if a real example needs it.
+- Done: regional diesel pass-through model (error-correction, sourced; docs/regional_pass_through.md).
