@@ -73,6 +73,13 @@ def output_polytope(
         if len(names) != dimensions or len(set(names)) != dimensions:
             raise ValueError("output_names must be unique and match the number of outputs")
 
+    rank = int(np.linalg.matrix_rank(points - points.mean(axis=0)))
+    if rank < dimensions:
+        raise ValueError(
+            f"outputs are linearly dependent: they span {rank} of {dimensions} dimensions "
+            "(one output may be a linear function of another, e.g. a per-share price derived from enterprise value)"
+        )
+
     try:
         hull = ConvexHull(points)
     except QhullError as error:

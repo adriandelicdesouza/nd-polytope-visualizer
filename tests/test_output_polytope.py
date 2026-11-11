@@ -83,8 +83,16 @@ def test_linear_model_image_is_exact_polytope_of_box_corners():
 def test_degenerate_points_raise_clear_error():
     collinear = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
 
-    with pytest.raises(ValueError, match="full-dimensional"):
+    with pytest.raises(ValueError, match="linearly dependent"):
         output_polytope(collinear)
+
+
+def test_linearly_dependent_outputs_are_reported():
+    values = np.random.default_rng(1).uniform(size=(30, 1))
+    points = np.hstack([values, 2.0 * values + 1.0])
+
+    with pytest.raises(ValueError, match="span 1 of 2"):
+        output_polytope(points)
 
 
 def test_single_output_is_rejected():

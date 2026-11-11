@@ -39,6 +39,7 @@ def test_grid_outputs_have_one_row_per_grid_point():
     result = analyse(_linear_model(), points_per_dimension=4)
 
     assert result.outputs.shape == (16, 2)
+    assert result.method == "grid"
     assert result.points_per_dimension == 4
 
 
@@ -65,7 +66,7 @@ def test_to_dict_and_save_round_trip(tmp_path):
     loaded = json.loads(path.read_text())
 
     assert loaded["model"] == "linear"
-    assert loaded["grid_size"] == 9
+    assert loaded["sample_count"] == 9
     assert loaded["base_case_inside_envelope"] is True
     assert [o["name"] for o in loaded["outputs"]] == ["x", "y"]
     assert loaded["outputs"][0]["low"] == pytest.approx(0.0)

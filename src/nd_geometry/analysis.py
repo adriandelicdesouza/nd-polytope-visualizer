@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,11 +17,13 @@ class AnalysisResult:
     """Results of running a model template over its input ranges."""
 
     model: Model
-    points_per_dimension: int
+    method: str
+    inputs: np.ndarray
     outputs: np.ndarray
     polytope: OutputPolytope
     base_outputs: dict[str, float]
     base_inside: bool
+    points_per_dimension: int | None = None
 
     @property
     def output_bounds(self) -> dict[str, tuple[float, float]]:
@@ -44,8 +47,9 @@ class AnalysisResult:
         positions = self.base_position()
         return {
             "model": self.model.name,
+            "method": self.method,
             "points_per_dimension": self.points_per_dimension,
-            "grid_size": int(len(self.outputs)),
+            "sample_count": int(len(self.outputs)),
             "inputs": [
                 {"name": i.name, "unit": i.unit, "low": i.low, "high": i.high, "base": i.base}
                 for i in self.model.inputs
@@ -71,20 +75,55 @@ class AnalysisResult:
         Path(path).write_text(json.dumps(self.to_dict(), indent=2) + "\n")
 
 
-def analyse(model: Model, points_per_dimension: int = 5) -> AnalysisResult:
-    """Sample the model over its input ranges and build its output envelope."""
-    space = ParameterSpace(
-        names=model.input_names,
-        lower_bounds=tuple(item.low for item in model.inputs),
-        upper_bounds=tuple(item.high for item in model.inputs),
+def evaluate_rows(model: Model, inputs: np.ndarray) -> np.ndarray:
+    """Evaluate the model at each row of input values; return an (n, M) output array."""
+    return np.asarray(
+        [
+            [model.evaluate(dict(zip(model.input_names, row)))[name] for name in model.output_names]
+            for row in inputs
+        ],
+        dtype=float,
     )
-    grid = space.sample_grid(points_per_dimension=points_per_dimension)
 
-    rows = [
-        [model.evaluate(dict(zip(model.input_names, sample)))[name] for name in model.output_names]
-        for sample in grid
-    ]
-    outputs = np.asarray(rows, dtype=float)
+
+def analyse(
+    model: Model,
+    points_per_dimension: int = 5,
+    method: str = "grid",
+    samples: int = 2000,
+    seed: int = 0,
+    include_corners: bool = True,
+) -> AnalysisResult:
+    """Sample the model over its input ranges and build its output envelope.
+
+    method="grid" uses a Cartesian grid (cost grows as points**inputs).
+    method="random" draws uniform samples with a fixed seed, plus the 2**inputs box
+    corners when include_corners is set (extremes of monotone models sit there).
+    """
+    lows = np.array([item.low for item in model.inputs])
+    highs = np.array([item.high for item in model.inputs])
+
+    if method == "grid":
+        space = ParameterSpace(
+            names=model.input_names,
+            lower_bounds=tuple(lows),
+            upper_bounds=tuple(highs),
+        )
+        inputs = space.sample_grid(points_per_dimension=points_per_dimension)
+        grid_points: int | None = points_per_dimension
+    elif method == "random":
+        rng = np.random.default_rng(seed)
+        inputs = lows + rng.uniform(size=(samples, len(lows))) * (highs - lows)
+        if include_corners:
+            if len(lows) > 16:
+                raise ValueError("include_corners is limited to 16 inputs (2**n corners)")
+            corners = np.array(list(itertools.product(*zip(lows, highs))))
+            inputs = np.vstack([corners, inputs])
+        grid_points = None
+    else:
+        raise ValueError("method must be 'grid' or 'random'")
+
+    outputs = evaluate_rows(model, inputs)
     polytope = output_polytope(outputs, output_names=model.output_names)
 
     base_outputs = model.evaluate(model.base_case())
@@ -92,9 +131,11 @@ def analyse(model: Model, points_per_dimension: int = 5) -> AnalysisResult:
 
     return AnalysisResult(
         model=model,
-        points_per_dimension=points_per_dimension,
+        method=method,
+        inputs=inputs,
         outputs=outputs,
         polytope=polytope,
         base_outputs=base_outputs,
         base_inside=polytope.contains(base_point),
+        points_per_dimension=grid_points,
     )
