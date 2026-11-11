@@ -120,7 +120,7 @@ def reverse_dcf(result: DensityResult, market_price: float, output: str = "impli
     while True:
         weights = np.exp(-0.5 * (rel / used) ** 2)
         sq = float(np.sum(weights**2))
-    ess = float(weights.sum() ** 2 / sq) if sq > 0 else 0.0
+        ess = float(weights.sum() ** 2 / sq) if sq > 0 else 0.0
         if ess >= min_effective or used >= 0.5:
             break
         used *= 1.5
