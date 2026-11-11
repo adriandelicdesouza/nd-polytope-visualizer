@@ -24,3 +24,16 @@
 - Done: regional diesel pass-through model (error-correction, sourced; docs/regional_pass_through.md).
 - Done: DCF design review across projects (docs/dcf_design_review.md); single-company dcf_v2 model; DCF fixes applied to dcf-core and bloomberg-terminal.
 - Done: freight model rebuilt for sea shipping (8,000 TEU container ship, Shanghai to Rotterdam; examples/sea_freight_model.py; docs/freight_assumptions.md).
+
+## Company workflow (phases 23 to 28)
+
+- Done: company inputs from SEC filings with source labels, price reference line, generic company DCF (phase 23).
+- Done: reverse DCF, market-implied drivers and their belief probability (phase 24).
+- Done: segment revenue build carrying the beliefs; Netflix build reproduces the workbook's base, bull and bear (phase 25).
+- Done: correlated drivers through a Gaussian copula, priors and historical shrinkage (phase 26).
+- Done: calibration backtest against later filings, width sweep, basket and price check (phase 27).
+- Done: `python -m nd_geometry.company` and an HTML report; docs/company_workflow.md (phase 28).
+- Next: run `backtest_basket` on a 20 to 30 name basket (needs ND_SEC_USER_AGENT) and decide whether the default belief
+  construction needs a trend term; on Netflix it is over-confident and biased low on margin.
+- Next: a CAPM WACC from filings plus a market beta, so WACC is not a default.
+- Next: segment-level history for builds (company facts carry no segments); today builds come from a spec file.
