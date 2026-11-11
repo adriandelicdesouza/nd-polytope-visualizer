@@ -9,22 +9,17 @@
 
 ## Done (recent)
 
-- Merged all phase branches into `master` (fast-forward from `phase-22-nd-level-set-topology`).
-- Added `plotly` as a runtime dependency; a clean install previously failed on import.
-- Recorded expected output for the examples in `examples/EXPECTED_OUTPUT.md`.
-- Vector-output evaluation (`evaluate_vector_model`) and output polytopes (`output_polytope`, using scipy's convex hull), with a DCF surface example (`examples/dcf_output_polytope.py`).
-
-## Done (recent)
-
-- Model template (`model.py`): named inputs with units, ranges and base values; named outputs; `Model.evaluate` validates inputs and outputs.
-- Analysis runner (`analysis.py`): `analyse(model)` samples the grid, builds the output envelope, reports output ranges and whether the base case sits inside, and saves a JSON summary.
-- Two models run through the same runner: DCF and road freight (`examples/dcf_model.py`, `examples/freight_model.py`).
+- Model template (`model.py`) and analysis runner (`analysis.py`), grid or seeded random with box corners.
+- Boundary refinement (`refine.py`): jitters samples behind the envelope and stops when its volume settles.
+- Explanations (`explain.py`): plain-language summary and ranked one-at-a-time input drivers.
+- Views (`views.py`): input surfaces over any two inputs with the rest fixed; envelope projections; standalone HTML via plotly.
+- Regression baseline (`baseline.py`): compares a saved summary and flags output or input changes.
+- Ten-input DCF and end-to-end report (`examples/dcf_full_report.py`); outputs go to `outputs/` (git-ignored).
 
 ## Next
 
-1. Explanation layer: plain-language summary, and a ranking of which inputs drive each output.
-2. Multi-dimensional views: 2D and 3D slices and projections of the envelope, with chosen axes.
-3. Boundary refinement, so the envelope is accurate for curved models before results are used for decisions.
-4. Regression baseline: compare a saved summary against a later run to flag envelope changes.
-5. Deferred until a real model needs them: input constraints (e.g. portfolio weights) and stochastic models.
-6. Extend the 4D facet-cell work to 5D+ only if a real example needs it.
+1. Slice navigation: choose which axes to show and fix the rest from the command line or a small UI.
+2. Freight/oil model with vessel size, load, fuel, route and disruption inputs, to test the design on a second domain.
+3. Non-monotone models: check that refinement finds interior extremes on real models, not only the test case.
+4. Deferred until a real model needs them: input constraints (e.g. portfolio weights) and stochastic models (fixed seeds or confidence bands).
+5. Extend the 4D facet-cell work to 5D+ only if a real example needs it.

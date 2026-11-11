@@ -85,3 +85,20 @@ cost_per_tonne: 14.10 to 143.75
 transit_days: 0.32 to 2.14
 Base case inside envelope: True
 ```
+
+## dcf_full_report.py
+
+```text
+Envelope volume by refinement round: [402662.1, 403192.3, 403275.4]
+Base case inside envelope: True
+DCF (ten inputs): 4560 samples (random+refined) across 10 inputs and 3 outputs.
+enterprise_value ranges from -39.59 $m to 1,010.59 $m; the base case of 272.23 $m sits in the middle of that range.
+  gross_margin moves enterprise_value most, accounting for 27% of the one-at-a-time swing.
+pv_terminal_value ranges from -40.61 $m to 823.25 $m; the base case of 191.32 $m sits in the middle of that range.
+  gross_margin moves pv_terminal_value most, accounting for 24% of the one-at-a-time swing.
+year5_free_cash_flow ranges from -2.90 $m to 58.72 $m; the base case of 24.17 $m sits in the middle of that range.
+  gross_margin moves year5_free_cash_flow most, accounting for 34% of the one-at-a-time swing.
+The base case lies inside the output envelope.
+Influence is measured one input at a time, so interactions between inputs are not shown.
+Baseline check against itself: {'ok': True, 'changes': []}
+```
