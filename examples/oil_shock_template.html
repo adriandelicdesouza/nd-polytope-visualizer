@@ -1,0 +1,77 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Oil shock: pump and freight</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+body{margin:0;background:#0a0b0d;color:#c8cdd6;font-family:'IBM Plex Mono',monospace;font-size:12px}
+header{padding:12px 16px;border-bottom:1px solid #252830;color:#f0a500;font-weight:600;letter-spacing:.05em}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:12px 16px}
+.tile{background:#0f1115;border:1px solid #252830;padding:10px}
+.tile .k{color:#5c6370;font-size:10px;text-transform:uppercase}
+.tile .v{font-size:20px;color:#f0a500;margin-top:4px}
+.panel{background:#0f1115;border:1px solid #252830;margin:0 16px 12px;padding:10px}
+.panel h3{margin:0 0 8px;font-size:11px;color:#5c6370;text-transform:uppercase;font-weight:500}
+table{width:100%;border-collapse:collapse}
+th,td{padding:5px 6px;border-bottom:1px solid #252830;text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{color:#5c6370;font-weight:500}
+.pos{color:#e74c3c}.neg{color:#2ecc71}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px}
+.two .panel{margin:0 0 12px}
+.note{color:#5c6370;font-size:10px;padding:4px 16px 16px;line-height:1.5}
+</style></head><body>
+<header>OIL SHOCK · PUMP AND FREIGHT PASS-THROUGH</header>
+<div class="grid" id="tiles"></div>
+<div class="panel"><h3>Scenarios: steady state, change vs base</h3><table id="scen"></table></div>
+<div class="two">
+  <div class="panel"><h3>EU pump after a $30 Brent shock (cents/L, cumulative)</h3><div id="path" style="height:300px"></div></div>
+  <div class="panel"><h3>Sea cost per TEU vs Brent, with risk (USD)</h3><div id="prof" style="height:300px"></div></div>
+</div>
+<div class="two">
+  <div class="panel"><h3>EU pump sensitivity: change at each driver's low and high (cents/L)</h3><div id="torEU" style="height:320px"></div></div>
+  <div class="panel"><h3>Sea cost per TEU sensitivity: change at low and high (USD)</h3><div id="torSea" style="height:320px"></div></div>
+</div>
+<div class="note" id="notes"></div>
+<script>
+const D = __PAYLOAD__;
+const base = (t, extra) => Object.assign({title:{text:t,font:{size:12,color:'#c8cdd6'}},
+  paper_bgcolor:'#0f1115', plot_bgcolor:'#0f1115',
+  font:{family:'IBM Plex Mono, monospace',color:'#c8cdd6',size:11},
+  margin:{l:40,r:20,t:30,b:40}, xaxis:{gridcolor:'#252830',zerolinecolor:'#252830'},
+  yaxis:{gridcolor:'#252830',zerolinecolor:'#252830'}, legend:{orientation:'h'}}, extra || {});
+const sg = x => (x >= 0 ? '+' : '') + x.toFixed(1);
+const cls = x => (x > 0.05 ? 'pos' : (x < -0.05 ? 'neg' : ''));
+
+document.getElementById('tiles').innerHTML = [
+  ['EU pump, base', D.base.eu.toFixed(3) + ' EUR/L'],
+  ['US pump, base', D.base.us.toFixed(3) + ' USD/gal'],
+  ['Sea cost, base', '$' + Math.round(D.base.teu) + '/TEU'],
+  ['Sea cost P50 with risk', '$' + Math.round(D.risk.p50) + '/TEU']
+].map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+document.getElementById('scen').innerHTML =
+  '<tr><th>Scenario</th><th>EU EUR/L</th><th>EU chg c/L</th><th>US USD/gal</th><th>US chg c/gal</th>' +
+  '<th>Sea $/TEU</th><th>Sea chg $</th><th>Transit days</th></tr>' +
+  D.scen.map(s => `<tr><td>${s.name}</td><td>${s.eu.toFixed(3)}</td><td class="${cls(s.deu)}">${sg(s.deu)}</td>` +
+    `<td>${s.us.toFixed(3)}</td><td class="${cls(s.dus)}">${sg(s.dus)}</td>` +
+    `<td>${Math.round(s.teu)}</td><td class="${cls(s.dteu)}">${sg(s.dteu)}</td><td>${s.days.toFixed(1)}</td></tr>`).join('');
+
+Plotly.newPlot('path', [
+  {x: D.path.map(p => p.week), y: D.path.map(p => p.eu), name: 'EU', line: {color: '#3498db'}},
+  {x: D.path.map(p => p.week), y: D.path.map(p => p.us), name: 'US (c/gal)', line: {color: '#f0a500'}}
+], base('Weeks after the shock', {xaxis: {title: 'weeks', gridcolor: '#252830'}}), {displayModeBar: false});
+
+Plotly.newPlot('prof', [
+  {x: D.prof.value, y: D.prof.p10, name: 'P10', mode: 'lines+markers', line: {color: '#3498db'}},
+  {x: D.prof.value, y: D.prof.p50, name: 'P50', mode: 'lines+markers', line: {color: '#f0a500'}},
+  {x: D.prof.value, y: D.prof.p90, name: 'P90', mode: 'lines+markers', line: {color: '#e74c3c'}}
+], base('Brent $/bbl', {xaxis: {title: 'Brent $/bbl', gridcolor: '#252830'}}), {displayModeBar: false});
+
+const tor = (id, rows, title) => Plotly.newPlot(id, [
+  {type: 'bar', orientation: 'h', y: rows.map(r => r.name), x: rows.map(r => r.dlo), name: 'at input low', marker: {color: '#3498db'}},
+  {type: 'bar', orientation: 'h', y: rows.map(r => r.name), x: rows.map(r => r.dhi), name: 'at input high', marker: {color: '#f0a500'}}
+], base(title, {barmode: 'group', margin: {l: 170, r: 20, t: 30, b: 40}, yaxis: {autorange: 'reversed', gridcolor: '#252830'}}), {displayModeBar: false});
+tor('torEU', D.torEU, 'Change in EU pump (cents/L)');
+tor('torSea', D.torSea, 'Change in sea cost per TEU (USD)');
+
+document.getElementById('notes').innerHTML = D.notes.map(n => '&middot; ' + n).join('<br>');
+</script></body></html>

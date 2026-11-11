@@ -39,3 +39,19 @@ def test_no_growth_means_no_working_capital_drag():
 def test_tv_share_between_zero_and_one():
     out = dcf.dcf_v2(BASE)
     assert 0 < out["tv_share"] < 1
+
+
+def test_flat_growth_fade_matches_no_fade():
+    flat = dcf.dcf_v2({**BASE, "growth_fade_to": BASE["revenue_growth"]})
+    default = dcf.dcf_v2(BASE)
+    assert flat["implied_price"] == pytest.approx(default["implied_price"])
+
+
+def test_lower_fade_growth_lowers_value():
+    high = dcf.dcf_v2({**BASE, "growth_fade_to": 0.05})["implied_price"]
+    low = dcf.dcf_v2({**BASE, "growth_fade_to": 0.00})["implied_price"]
+    assert low < high
+
+
+def test_exit_multiple_is_positive_for_base_case():
+    assert dcf.dcf_v2(BASE)["exit_multiple"] > 0

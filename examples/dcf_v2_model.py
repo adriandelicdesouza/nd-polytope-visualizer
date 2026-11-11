@@ -13,15 +13,17 @@ MID_YEAR = True  # cash flows arrive mid-year; set False for end-of-year discoun
 
 
 def dcf_v2(v: dict[str, float]) -> dict[str, float]:
-    g, margin, tax = v["revenue_growth"], v["ebit_margin"], v["tax_rate"]
+    g1, margin, tax = v["revenue_growth"], v["ebit_margin"], v["tax_rate"]
+    g_end = v.get("growth_fade_to", g1)  # growth moves linearly from year 1 to year N
     capex, da, nwc = v["capex_pct"], v["da_pct"], v["nwc_pct"]
     wacc, tg = v["wacc"], v["terminal_growth"]
     if wacc <= tg:
         raise ValueError("WACC must be greater than terminal growth.")
 
-    pv_fcf, rev_prev, fcf = 0.0, BASE_REVENUE, 0.0
+    pv_fcf, rev_prev, fcf, rev = 0.0, BASE_REVENUE, 0.0, BASE_REVENUE
     for t in range(1, YEARS + 1):
-        rev = rev_prev * (1 + g)
+        g_t = g1 + (g_end - g1) * (t - 1) / (YEARS - 1)
+        rev = rev_prev * (1 + g_t)
         ebit = rev * margin
         nopat = ebit - max(ebit, 0.0) * tax          # no tax credit on losses
         fcf = nopat + rev * da - rev * capex - nwc * (rev - rev_prev)  # ΔNWC on the revenue increment
@@ -32,23 +34,26 @@ def dcf_v2(v: dict[str, float]) -> dict[str, float]:
     tv = fcf * (1 + tg) / (wacc - tg)
     pv_tv = tv / (1 + wacc) ** (YEARS - 0.5 if MID_YEAR else YEARS)
     ev = pv_fcf + pv_tv
+    ebitda_n = rev * (margin + da)
     return {
         "implied_price": (ev - NET_DEBT) / SHARES,
         "enterprise_value": ev,
         "tv_share": pv_tv / ev if ev > 0 else float("nan"),
+        "exit_multiple": tv / ebitda_n if ebitda_n > 0 else float("nan"),  # implied terminal EV / EBITDA
     }
 
 
 def dcf_model_outputs(v: dict[str, float]) -> dict[str, float]:
-    """The two outputs the polytope sees. Enterprise value is omitted: it is a multiple of price here."""
+    """The outputs the polytope sees. Enterprise value is omitted: it is a multiple of price here."""
     out = dcf_v2(v)
-    return {"implied_price": out["implied_price"], "tv_share": out["tv_share"]}
+    return {k: out[k] for k in ("implied_price", "tv_share", "exit_multiple")}
 
 
 MODEL = Model(
     name="Single-company DCF (v2 conventions)",
     inputs=(
         Input("revenue_growth", "%", 0.02, 0.10, 0.06),
+        Input("growth_fade_to", "%", 0.00, 0.05, 0.03),
         Input("ebit_margin", "%", 0.10, 0.30, 0.20),
         Input("tax_rate", "%", 0.20, 0.30, 0.25),
         Input("capex_pct", "%", 0.03, 0.07, 0.05),
@@ -57,11 +62,11 @@ MODEL = Model(
         Input("wacc", "%", 0.08, 0.12, 0.10),
         Input("terminal_growth", "%", 0.01, 0.03, 0.02),
     ),
-    outputs=(Output("implied_price", "$/share"), Output("tv_share", "%")),  # EV is a multiple of price here, so it is omitted
+    outputs=(Output("implied_price", "$/share"), Output("tv_share", "%"), Output("exit_multiple", "x EBITDA")),
     function=dcf_model_outputs,
 )
 
 if __name__ == "__main__":
-    base = {"revenue_growth": 0.06, "ebit_margin": 0.20, "tax_rate": 0.25, "capex_pct": 0.05,
-            "da_pct": 0.045, "nwc_pct": 0.10, "wacc": 0.10, "terminal_growth": 0.02}
+    base = {"revenue_growth": 0.06, "growth_fade_to": 0.03, "ebit_margin": 0.20, "tax_rate": 0.25,
+            "capex_pct": 0.05, "da_pct": 0.045, "nwc_pct": 0.10, "wacc": 0.10, "terminal_growth": 0.02}
     print(dcf_v2(base))
