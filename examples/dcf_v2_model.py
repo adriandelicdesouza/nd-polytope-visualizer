@@ -39,6 +39,12 @@ def dcf_v2(v: dict[str, float]) -> dict[str, float]:
     }
 
 
+def dcf_model_outputs(v: dict[str, float]) -> dict[str, float]:
+    """The two outputs the polytope sees. Enterprise value is omitted: it is a multiple of price here."""
+    out = dcf_v2(v)
+    return {"implied_price": out["implied_price"], "tv_share": out["tv_share"]}
+
+
 MODEL = Model(
     name="Single-company DCF (v2 conventions)",
     inputs=(
@@ -51,8 +57,8 @@ MODEL = Model(
         Input("wacc", "%", 0.08, 0.12, 0.10),
         Input("terminal_growth", "%", 0.01, 0.03, 0.02),
     ),
-    outputs=(Output("implied_price", "$/share"), Output("enterprise_value", "$m"), Output("tv_share", "%")),
-    function=dcf_v2,
+    outputs=(Output("implied_price", "$/share"), Output("tv_share", "%")),  # EV is a multiple of price here, so it is omitted
+    function=dcf_model_outputs,
 )
 
 if __name__ == "__main__":
