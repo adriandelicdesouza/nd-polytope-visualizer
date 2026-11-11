@@ -9,6 +9,7 @@ description = "N-dimensional polytope generation, transformation, slicing, proje
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.0",
+    "plotly>=5.0",
 ]
 
 [project.optional-dependencies]
