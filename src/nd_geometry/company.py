@@ -55,7 +55,7 @@ class CompanyAnalysis:
         return out
 
 
-def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overrides=None, years: int = 10,
+def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overrides=None, years: int = 10, wacc_build: bool = False, per_year: bool = False,
                     draws: int = 20_000, seed: int = 0, correlation: str = "prior", backtest: bool = True,
                     fetch: Fetch = http_get, cache_dir=".cache", market_price: float | None = None,
                     raw: dict | None = None, prices: PriceHistory | None = None) -> CompanyAnalysis:
@@ -71,7 +71,7 @@ def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overr
         market_price, source = prices.last_price, f"Yahoo Finance close {prices.last_date}"
     else:
         source = "supplied"
-    model, build = company_model(company, build, years)
+    model, build = company_model(company, build, years, wacc_build=wacc_build, per_year=per_year)
     names = model.input_names
     if correlation == "none":
         corr = None
@@ -141,6 +141,8 @@ def main(argv=None) -> int:
     p.add_argument("--build", help="segment revenue build JSON (default: top-down growth with fade)")
     p.add_argument("--set", action="append", default=[], metavar="DRIVER=LOW,BASE,HIGH", help="override a driver's range")
     p.add_argument("--years", type=int, default=10, help="forecast years for the top-down build")
+    p.add_argument("--wacc-build", action="store_true", help="build WACC from rf, beta, ERP, cost of debt, debt weight")
+    p.add_argument("--per-year", action="store_true", help="one input per forecast year for margin, tax, capex, D&A, NWC")
     p.add_argument("--draws", type=int, default=20_000)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--correlation", choices=("none", "prior", "historical"), default="prior")
@@ -162,7 +164,7 @@ def main(argv=None) -> int:
         overrides[name] = (low, base, high)
     analysis = analyse_company(
         args.ticker, build=SegmentBuild.from_json(args.build) if args.build else None, overrides=overrides,
-        years=args.years, draws=args.draws, seed=args.seed, correlation=args.correlation,
+        years=args.years, wacc_build=args.wacc_build, per_year=args.per_year, draws=args.draws, seed=args.seed, correlation=args.correlation,
         backtest=not args.no_backtest, market_price=args.market_price, cache_dir=args.cache_dir,
         raw=json.loads(Path(args.facts_file).read_text()) if args.facts_file else None)
     print("\n".join(analysis.lines()))

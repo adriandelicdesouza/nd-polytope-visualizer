@@ -29,6 +29,7 @@ class SupportResult:
     outputs: np.ndarray  # (P, m)
     directions: np.ndarray  # (K, m) unit directions used (in scaled output space)
     evaluations: int
+    infeasible: int = 0  # input combinations the model refused (kept out of the hull)
 
     def polytope(self, extra: np.ndarray | None = None) -> OutputPolytope:
         """Hull of the support points, plus any extra output points (for example belief draws)."""
@@ -115,4 +116,5 @@ def support_polytope(model: Model, directions: int = 300, seed: int = 0, sweeps:
         points[tuple(np.round(x, 12))] = (x, run(x))
     inputs = np.array([p[0] for p in points.values()])
     outputs = np.array([p[1] for p in points.values()])
-    return SupportResult(model, inputs, outputs, dirs, len(cache))
+    bad = sum(1 for y in cache.values() if not np.all(np.isfinite(y)))
+    return SupportResult(model, inputs, outputs, dirs, len(cache), bad)

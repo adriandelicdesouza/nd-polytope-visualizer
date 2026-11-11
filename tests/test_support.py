@@ -82,3 +82,33 @@ def test_vertex_inputs_and_roles_for_one_sided_inputs():
     roles = res.input_roles(poly)
     assert set(roles.values()) <= {"low", "high", "trade-off", "interior"}
     assert roles["up"] == "trade-off"
+
+def test_wacc_build_and_per_year_inputs_give_a_big_dcf_that_runs():
+    co = company_from_facts(make_raw(), ticker="T")
+    small, _ = company_model(co)
+    big, _ = company_model(co, years=5, wacc_build=True, per_year=True)
+    assert len(big.inputs) > 3 * len(small.inputs) and "wacc" not in big.input_names
+    assert {"rf", "equity_beta", "erp", "ebit_margin_y3"} <= set(big.input_names)
+    out = big.evaluate(big.base_case())
+    ref = small.evaluate(small.base_case())
+    assert out["implied_price"] > 0 and np.isfinite(out["tv_share"])
+    res = support_polytope(big, directions=80, seed=0)
+    assert len(res.polytope().vertices) >= 4 and res.evaluations < 200_000
+    # per-year inputs set to the single-input value reproduce the single-input model
+    flat, _ = company_model(co, years=5, per_year=True)
+    assert abs(flat.evaluate(flat.base_case())["implied_price"] - ref["implied_price"]) < 1e-9
+
+
+def test_hull_report_gives_full_shape_and_extremes():
+    from nd_geometry.hull_report import hull_report
+    inputs = tuple(Input(f"x{i}", "u", 0.0, 1.0, 0.5) for i in range(3))
+    def f(v):
+        if v["x0"] > 0.99 and v["x1"] > 0.99:
+            raise ValueError("refused")
+        return {"a": v["x0"] + v["x1"], "b": v["x0"] - v["x2"]}
+    model = Model("m", inputs, (Output("a", "u"), Output("b", "u")), f)
+    res = support_polytope(model, directions=60, seed=0)
+    rep = hull_report(res.polytope(), res)
+    text = "\n".join(rep.lines())
+    assert rep.vertices >= 3 and rep.facets >= 3 and rep.volume > 0 and rep.infeasible > 0
+    assert set(rep.extremes) == {"a", "b"} and "inputs (" in text and "polytope" in text
