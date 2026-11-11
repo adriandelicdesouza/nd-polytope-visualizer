@@ -56,3 +56,16 @@ Edges:    80
 Vertices: 8
 Edges:    12
 ```
+
+## dcf_output_polytope.py
+
+```text
+Parameters: ('revenue_growth', 'ebit_margin', 'wacc', 'terminal_growth')
+Grid samples: 625
+Output bounds (min, max):
+  enterprise_value: 71.7159 to 522.4520
+  terminal_share: 0.6016 to 0.8103
+Polytope vertices: 16
+Polytope area: 50.8689
+Base case inside: True
+```
