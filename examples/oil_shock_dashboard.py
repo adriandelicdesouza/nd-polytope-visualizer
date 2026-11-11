@@ -14,6 +14,7 @@ GAMMA = -0.038  # weekly adjustment speed, since 2015 (docs/regional_pass_throug
 WEEKS = 26
 
 # (name, regional overrides, sea overrides). Brent moves both models.
+# Shocks are changes from base (Brent $90, crack $30). Brent moves both models.
 SCENARIOS = [
     ("Base", {}, {}),
     ("Brent +$15", {"brent_price": 105.0}, {"brent_price": 105.0}),

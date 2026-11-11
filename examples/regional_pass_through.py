@@ -29,7 +29,7 @@ def regional_pass_through(values: dict[str, float]) -> dict[str, float]:
 MODEL = Model(
     name="Regional diesel pump pass-through",
     inputs=(
-        Input("brent_price", "$/bbl", 50.0, 120.0, 80.0),
+        Input("brent_price", "$/bbl", 50.0, 120.0, 90.0),
         Input("diesel_crack", "$/bbl", 10.0, 60.0, 30.0),
         Input("usd_per_eur", "USD/EUR", 1.00, 1.25, 1.12),
         Input("freight_per_litre", "USD/L", 0.00, 0.10, 0.02),
