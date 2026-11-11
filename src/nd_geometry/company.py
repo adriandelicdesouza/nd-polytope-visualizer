@@ -21,10 +21,13 @@ from .dcf import company_model
 from .density import DensityResult, belief_density
 from .filings import (SEC_FACTS_URL, CompanyInputs, Fetch, cached_get, company_from_facts, http_get,
                       resolve_company)
+from .hull_report import HullReport, hull_report
 from .model import Model
 from .prices import PriceHistory, fetch_prices
 from .reverse import ReverseDCF, reverse_dcf
 from .revenue_build import RevenueBuild, SegmentBuild
+from .story import Story, cheapest_story
+from .support import support_polytope
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,8 @@ class CompanyAnalysis:
     correlation: Correlation | None
     reverse: ReverseDCF
     backtest: BacktestResult | None
+    story: Story | None = None  # cheapest joint move of all drivers that reproduces the market price
+    hull: HullReport | None = None  # full output polytope
 
     def lines(self) -> list[str]:
         q = self.result.quantiles("implied_price")
@@ -50,12 +55,16 @@ class CompanyAnalysis:
             out.append("Price sd, independent vs correlated: "
                        f"${self.independent.column('implied_price').std():,.2f} vs ${self.result.column('implied_price').std():,.2f}")
         out += ["", "Reverse DCF", *self.reverse.lines()]
+        if self.story is not None:
+            out += ["", *self.story.lines()]
+        if self.hull is not None:
+            out += ["", *self.hull.lines()]
         if self.backtest is not None:
             out += ["", "Backtest of past belief distributions against later filings", *self.backtest.lines()]
         return out
 
 
-def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overrides=None, years: int = 10, wacc_build: bool = False, per_year: bool = False,
+def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overrides=None, years: int = 10, wacc_build: bool = False, per_year: bool = False, range_width: float = 1.0,
                     draws: int = 20_000, seed: int = 0, correlation: str = "prior", backtest: bool = True,
                     fetch: Fetch = http_get, cache_dir=".cache", market_price: float | None = None,
                     raw: dict | None = None, prices: PriceHistory | None = None) -> CompanyAnalysis:
@@ -65,7 +74,7 @@ def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overr
         raw = json.loads(cached_get(SEC_FACTS_URL.format(cik=cik), fetch, cache_dir))
     else:
         cik, ticker = 0, str(identifier).upper()
-    company = company_from_facts(raw, ticker=ticker, cik=cik, overrides=overrides)
+    company = company_from_facts(raw, ticker=ticker, cik=cik, overrides=overrides, range_width=range_width)
     if market_price is None:
         prices = prices or fetch_prices(ticker, cache_dir=cache_dir)
         market_price, source = prices.last_price, f"Yahoo Finance close {prices.last_date}"
@@ -84,8 +93,14 @@ def analyse_company(identifier: str, *, build: RevenueBuild | None = None, overr
     result = belief_density(model, draws=draws, seed=seed, correlation=corr)
     independent = belief_density(model, draws=draws, seed=seed) if corr is not None else None
     bt = backtest_company(raw, ticker, draws=2000, seed=seed) if backtest else None
+    story = cheapest_story(model, "implied_price", float(market_price))
+    try:
+        support = support_polytope(model, directions=200, seed=seed)
+        hull = hull_report(support.polytope(), support)
+    except ValueError:  # degenerate outputs (for example a model whose outputs are all linearly dependent)
+        hull = None
     return CompanyAnalysis(company, model, build, float(market_price), source, result, independent, corr,
-                           reverse_dcf(result, float(market_price)), bt)
+                           reverse_dcf(result, float(market_price)), bt, story, hull)
 
 def build_report(a: CompanyAnalysis, path) -> Path:
     """Write one HTML page: price density against the market price, what the price implies, backtest PITs."""
@@ -143,6 +158,8 @@ def main(argv=None) -> int:
     p.add_argument("--years", type=int, default=10, help="forecast years for the top-down build")
     p.add_argument("--wacc-build", action="store_true", help="build WACC from rf, beta, ERP, cost of debt, debt weight")
     p.add_argument("--per-year", action="store_true", help="one input per forecast year for margin, tax, capex, D&A, NWC")
+    p.add_argument("--range-width", type=float, default=1.0,
+                   help="widen every filing-based range by this factor; the 25-company backtest suggests about 3")
     p.add_argument("--draws", type=int, default=20_000)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--correlation", choices=("none", "prior", "historical"), default="prior")
@@ -164,7 +181,7 @@ def main(argv=None) -> int:
         overrides[name] = (low, base, high)
     analysis = analyse_company(
         args.ticker, build=SegmentBuild.from_json(args.build) if args.build else None, overrides=overrides,
-        years=args.years, wacc_build=args.wacc_build, per_year=args.per_year, draws=args.draws, seed=args.seed, correlation=args.correlation,
+        years=args.years, wacc_build=args.wacc_build, per_year=args.per_year, range_width=args.range_width, draws=args.draws, seed=args.seed, correlation=args.correlation,
         backtest=not args.no_backtest, market_price=args.market_price, cache_dir=args.cache_dir,
         raw=json.loads(Path(args.facts_file).read_text()) if args.facts_file else None)
     print("\n".join(analysis.lines()))

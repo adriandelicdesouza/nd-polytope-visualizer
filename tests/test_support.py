@@ -43,7 +43,7 @@ def test_matches_corner_hull_on_a_ten_input_dcf():
     approx = res.polytope()
     exact = belief_density(model, {}, draws=200, seed=0, corner_limit=n + 1).feasible
     ratio = approx.volume / exact.volume
-    assert 0.9 <= ratio <= 1.0 + 1e-6
+    assert 0.95 <= ratio <= 1.0 + 1e-6
 
 
 def test_non_monotone_model_stays_inside_true_region():
@@ -112,3 +112,16 @@ def test_hull_report_gives_full_shape_and_extremes():
     text = "\n".join(rep.lines())
     assert rep.vertices >= 3 and rep.facets >= 3 and rep.volume > 0 and rep.infeasible > 0
     assert set(rep.extremes) == {"a", "b"} and "inputs (" in text and "polytope" in text
+
+
+def test_cheapest_story_spreads_the_move_across_inputs_and_flags_unreachable():
+    from nd_geometry.story import cheapest_story
+    model, w = linear_model(40)
+    base_a = model.evaluate(model.base_case())["a"]
+    st = cheapest_story(model, "a", base_a + 3.0)
+    assert st.reachable and abs(st.achieved - (base_a + 3.0)) < 1e-3
+    # least-squares move is proportional to the weights, so every input moves a little rather than one a lot
+    assert max(abs(m) for m in st.moves.values()) < 1.0
+    assert abs(st.cost - 9.0 / np.sum((1.5 * w[0]) ** 2)) < 1e-4  # closed-form minimum-norm move
+    far = cheapest_story(model, "a", base_a + 1e6)
+    assert not far.reachable and "outside" in far.lines()[0]

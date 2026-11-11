@@ -87,3 +87,14 @@ input is one-sided, a trade-off or interior. Tested to 60 inputs.
 
 Backtest on 22 companies (1,875 forecasts, filings-only beliefs): the 80% band holds 42% and the 50% band 26%.
 Widening the ranges about 3x brings the 80% band to 67%. Beliefs from filing history are over-confident.
+## Phase 30: big DCFs end to end
+
+- `--wacc-build` replaces the single WACC with rf, equity beta, equity risk premium, cost of debt and debt weight.
+- `--per-year` gives margin, tax, capex, D&A, working capital and reinvestment one input per forecast year
+  (NFLX, 5 years, both flags: 39 inputs, whole report in about 30 s).
+- The report now includes the full output polytope (`hull_report`: vertices, facets, volume, bounds, which inputs
+  build each extreme, one-sided / trade-off / interior inputs, model runs and infeasible combinations).
+- `story.cheapest_story`: the smallest joint move of every input (in range half-widths) that reproduces the market
+  price, or a statement that the box cannot reach it. Single-driver solves are usually unreachable with dozens of inputs.
+- `--range-width F` widens every filing-based range. The basket backtest says F of about 3 gets the 80% band from
+  42% to 67%; it does not reach 75-80%, so a per-output fitted width is still open.
