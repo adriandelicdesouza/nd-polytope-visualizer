@@ -78,12 +78,9 @@ terminal_share: 0.60 to 0.81
 Base case inside envelope: True
 ```
 
-## freight_model.py
+## freight_oil_model.py
 
 ```text
-cost_per_tonne: 14.10 to 143.75
-transit_days: 0.32 to 2.14
-Base case inside envelope: True
 ```
 
 ## dcf_full_report.py
@@ -101,4 +98,19 @@ year5_free_cash_flow ranges from -2.90 $m to 58.72 $m; the base case of 24.17 $m
 The base case lies inside the output envelope.
 Influence is measured one input at a time, so interactions between inputs are not shown.
 Baseline check against itself: {'ok': True, 'changes': []}
+```
+
+## freight_oil_report.py
+
+```text
+Event frequencies: {'port_delay_days': 0.253, 'fuel_shock': 0.15}
+cost_per_tonne: P10 15.85, P50 42.03, P90 297.18
+transit_days: P10 0.55, P50 1.34, P90 7.58
+cost_per_tonne by Brent price ($/bbl):
+    50.0: P10 14.08, P50 37.33, P90 294.08
+    67.5: P10 14.97, P50 39.66, P90 297.26
+    85.0: P10 15.83, P50 41.90, P90 298.55
+   102.5: P10 16.71, P50 44.22, P90 300.55
+   120.0: P10 17.59, P50 46.53, P90 302.60
+Dashboard written.
 ```

@@ -9,17 +9,16 @@
 
 ## Done (recent)
 
-- Model template (`model.py`) and analysis runner (`analysis.py`), grid or seeded random with box corners.
-- Boundary refinement (`refine.py`): jitters samples behind the envelope and stops when its volume settles.
-- Explanations (`explain.py`): plain-language summary and ranked one-at-a-time input drivers.
-- Views (`views.py`): input surfaces over any two inputs with the rest fixed; envelope projections; standalone HTML via plotly.
-- Regression baseline (`baseline.py`): compares a saved summary and flags output or input changes.
-- Ten-input DCF and end-to-end report (`examples/dcf_full_report.py`); outputs go to `outputs/` (git-ignored).
+- Model template, analysis runner, boundary refinement, explanations, views, regression baseline (see earlier entries).
+- Probability layer (`probability.py`): risk events with probabilities and severity ranges, Monte Carlo draws with a fixed seed, joint outcome distributions, quantiles, and quantile profiles across an input.
+- Oil-linked road freight model (`examples/freight_oil_model.py`): Brent price plus diesel crack, vessel capacity, load, distance, speed, port delays and fuel shocks.
+- Interactive dashboard (`dashboard.py`): self-contained HTML in the terminal's palette; choose any two variables for a joint density, filter inputs, filter by event, and trace quantiles across an input.
 
 ## Next
 
-1. Slice navigation: choose which axes to show and fix the rest from the command line or a small UI.
-2. Freight/oil model with vessel size, load, fuel, route and disruption inputs, to test the design on a second domain.
-3. Non-monotone models: check that refinement finds interior extremes on real models, not only the test case.
-4. Deferred until a real model needs them: input constraints (e.g. portfolio weights) and stochastic models (fixed seeds or confidence bands).
-5. Extend the 4D facet-cell work to 5D+ only if a real example needs it.
+1. Validate the cost assumptions (delay cost per day, driving hours, fuel use) against sourced data before the pitch; the probabilities are placeholders.
+2. Correlated risks: events are currently independent. Add a dependence structure (e.g. a shared shock) when the risks are linked in practice.
+3. Analytic check: compare Monte Carlo quantiles with a closed-form result for a simple case.
+4. Slice navigation and sharing: fixed views for the pitch, and a way to rerun the dashboard from a saved model.
+5. Input constraints (e.g. portfolio weights) when a portfolio model is added.
+6. Extend the 4D facet-cell work to 5D+ only if a real example needs it.
