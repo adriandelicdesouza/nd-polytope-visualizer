@@ -1,0 +1,149 @@
+{
+  "name": "Netflix revenue build (from NFLX_Revenue_Build_Model.xlsx)",
+  "base_year": "FY2026E",
+  "first_year": 2027,
+  "streams": [
+    {
+      "name": "subscription",
+      "base_revenue": 48425.871,
+      "source": "Historical Financials!F24",
+      "factors": [
+        {
+          "name": "volume",
+          "mode": "add",
+          "path": [
+            0.04,
+            0.04,
+            0.037,
+            0.034,
+            0.031,
+            0.028,
+            0.025,
+            0.023,
+            0.021,
+            0.02
+          ],
+          "range": {
+            "low": -0.012,
+            "base": 0.0,
+            "high": 0.01
+          },
+          "source": "Assumptions!G12:P12; spreads Assumptions!B14 (bear), B13 (bull)"
+        },
+        {
+          "name": "pricing",
+          "mode": "add",
+          "path": [
+            0.048,
+            0.046,
+            0.042,
+            0.038,
+            0.035,
+            0.032,
+            0.03,
+            0.028,
+            0.026,
+            0.025
+          ],
+          "range": {
+            "low": -0.01,
+            "base": 0.0,
+            "high": 0.008
+          },
+          "source": "Assumptions!G18:P18; spreads Assumptions!B20 (bear), B19 (bull)"
+        },
+        {
+          "name": "fx",
+          "mode": "scale",
+          "path": [
+            -0.01,
+            -0.0075,
+            -0.005,
+            -0.0025,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "range": {
+            "low": 0.0,
+            "base": 0.0,
+            "high": 1.0
+          },
+          "source": "Assumptions!G26:P26 is the bear FX path; base and bull FX are zero"
+        }
+      ]
+    },
+    {
+      "name": "advertising",
+      "base_revenue": 2700.0,
+      "source": "Historical Financials!F23",
+      "factors": [
+        {
+          "name": "growth",
+          "mode": "scale",
+          "path": [
+            0.55,
+            0.33,
+            0.23,
+            0.16,
+            0.13,
+            0.105,
+            0.09,
+            0.08,
+            0.07,
+            0.065
+          ],
+          "range": {
+            "low": 0.8,
+            "base": 1.0,
+            "high": 1.3
+          },
+          "source": "Assumptions!G36:P36; multipliers Assumptions!B38 (bear), B37 (bull)"
+        }
+      ]
+    }
+  ],
+  "workbook_total": [
+    56965.32532032,
+    62982.59909645692,
+    68887.92329237291,
+    74530.48087429952,
+    80030.00647316,
+    85299.30539665959,
+    90394.37593943113,
+    95369.19738262103,
+    100165.7380654473,
+    104966.84677610002
+  ],
+  "workbook_total_source": "Geographic Build!G13:P13",
+  "workbook_scenarios": {
+    "bull": [
+      58325.1057648,
+      66040.80469990417,
+      73923.03960226465,
+      81722.60079991269,
+      89595.65254769861,
+      97411.92778064727,
+      105241.18692052526,
+      113148.86310271322,
+      121047.16678079935,
+      129173.63109856143
+    ],
+    "bear": [
+      55044.76857661656,
+      58988.18202983341,
+      62731.904205649975,
+      66207.93074125699,
+      69543.21957740614,
+      72541.11025624313,
+      75258.12068307903,
+      77748.55037454888,
+      79979.90478999594,
+      82102.27121179174
+    ],
+    "source": "Scenarios!G24:P24, Scenarios!G35:P35"
+  }
+}

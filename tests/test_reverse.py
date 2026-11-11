@@ -55,3 +55,11 @@ def test_price_outside_the_feasible_interval_is_flagged(setup):
     rev = reverse_dcf(result, 3 * top)
     assert not rev.attainable and rev.prob_at_or_above == 0.0
     assert any("OUTSIDE" in line for line in rev.lines())
+
+def test_far_tail_price_widens_the_kernel_to_keep_enough_draws(setup):
+    _, result = setup
+    top = result.support("implied_price")[1]
+    near = reverse_dcf(result, float(np.median(result.column("implied_price"))))
+    tail = reverse_dcf(result, 0.97 * top)
+    assert near.bandwidth_used == 0.03 and tail.bandwidth_used > 0.03
+    assert tail.effective_draws >= 200 or tail.bandwidth_used >= 0.5

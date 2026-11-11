@@ -54,6 +54,7 @@ class ReverseDCF:
     prob_within: float  # P(|model price / market price - 1| <= tolerance)
     tolerance: float
     effective_draws: float
+    bandwidth_used: float  # kernel width (share of the market price) after any widening
     implied: dict[str, ImpliedDriver]
     solves: dict[str, DriverSolve]
     implied_point_price: float  # model price at the implied means (the joint region is not a single point)
@@ -64,7 +65,8 @@ class ReverseDCF:
                f"feasible interval ${lo:,.2f} to ${hi:,.2f}" + ("" if self.attainable else " (market price is OUTSIDE it)"),
                f"Belief mass at or above the market price: {self.prob_at_or_above:.1%} "
                f"(market sits at the {self.belief_percentile:.0%} percentile); "
-               f"within +/-{self.tolerance:.0%} of it: {self.prob_within:.1%}; effective draws {self.effective_draws:,.0f}"]
+               f"within +/-{self.tolerance:.0%} of it: {self.prob_within:.1%}; "
+               f"{self.effective_draws:,.0f} effective draws at a {self.bandwidth_used:.0%} kernel"]
         out.append("Market-implied drivers (belief mean -> implied mean, p10 to p90, shift in belief sd):")
         for d in sorted(self.implied.values(), key=lambda d: -abs(d.shift_in_sd)):
             out.append(f"  {d.name:<20} {d.prior_mean:9.4f} -> {d.implied_mean:9.4f}  "
@@ -106,14 +108,21 @@ def _weighted_quantile(x: np.ndarray, w: np.ndarray, q: float) -> float:
 
 
 def reverse_dcf(result: DensityResult, market_price: float, output: str = "implied_price", tolerance: float = 0.05,
-                bandwidth: float = 0.03, solve_drivers: list[str] | None = None) -> ReverseDCF:
+                bandwidth: float = 0.03, solve_drivers: list[str] | None = None,
+                min_effective: float = 200.0) -> ReverseDCF:
     """Reverse DCF on belief draws. `bandwidth` is the width (as a share of the market price) of the kernel that
-    selects draws near it; `tolerance` is the half-width of the reported probability band."""
+    selects draws near it, widened by half again until at least `min_effective` draws count (market prices far in
+    the tail of the beliefs otherwise leave too few); `tolerance` is the half-width of the reported probability band."""
     model = result.model
     price = result.column(output)
     rel = price / market_price - 1.0
-    weights = np.exp(-0.5 * (rel / bandwidth) ** 2)
-    ess = float(weights.sum() ** 2 / np.sum(weights**2)) if weights.sum() > 0 else 0.0
+    used = bandwidth
+    while True:
+        weights = np.exp(-0.5 * (rel / used) ** 2)
+        ess = float(weights.sum() ** 2 / np.sum(weights**2)) if weights.sum() > 0 else 0.0
+        if ess >= min_effective or used >= 0.5:
+            break
+        used *= 1.5
     implied: dict[str, ImpliedDriver] = {}
     for j, item in enumerate(model.inputs):
         column = result.inputs[:, j]
@@ -134,5 +143,5 @@ def reverse_dcf(result: DensityResult, market_price: float, output: str = "impli
         market_price=market_price, base_price=float(model.evaluate(base_inputs)[output]),
         feasible_interval=(low, high), attainable=low <= market_price <= high,
         belief_percentile=float(np.mean(price < market_price)), prob_at_or_above=float(np.mean(price >= market_price)),
-        prob_within=float(np.mean(np.abs(rel) <= tolerance)), tolerance=tolerance, effective_draws=ess,
+        prob_within=float(np.mean(np.abs(rel) <= tolerance)), tolerance=tolerance, effective_draws=ess, bandwidth_used=used,
         implied=implied, solves=solves, implied_point_price=float(point_price))
